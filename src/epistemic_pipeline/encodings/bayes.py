@@ -122,6 +122,74 @@ def bayes_argmax(beliefs: BayesBeliefs) -> str:
     return max(beliefs.probabilities, key=lambda h: beliefs.probabilities[h])
 
 
+def _detect_oscillation(confidence_history: list[float]) -> bool:
+    """Check for oscillation: max-probability reverses direction >= 3 times.
+
+    confidence_history contains the MAP probability after each evidence step.
+    A direction reversal is when the MAP probability goes from rising to
+    falling or vice versa. Three reversals in six steps means the evidence
+    is pushing beliefs back and forth without convergence.
+
+    Args:
+        confidence_history: MAP probability after each evidence step.
+
+    Returns:
+        True if oscillation is detected; False otherwise.
+    """
+    window = confidence_history[-6:]
+    if len(window) < 3:
+        return False
+    reversals = 0
+    for i in range(1, len(window) - 1):
+        prev_rising = window[i] > window[i - 1]
+        next_rising = window[i + 1] > window[i]
+        if prev_rising != next_rising:
+            reversals += 1
+    return reversals >= 3
+
+
+def _detect_contradiction(
+    obs: Observation,
+    prior_evidence: tuple[Observation, ...],
+    beliefs_before: BayesBeliefs,
+    beliefs_after: BayesBeliefs,
+) -> bool:
+    """Check for contradiction after processing one observation.
+
+    Two triggers:
+    1. Same-variable conflict: another observation of this variable
+       had a different value.
+    2. High-confidence reversal: the old MAP had probability > 0.8,
+       and that same hypothesis lost more than 0.3 probability after
+       the update.
+
+    Args:
+        obs: the observation just processed.
+        prior_evidence: all observations processed before this one.
+        beliefs_before: beliefs before processing obs.
+        beliefs_after: beliefs after processing obs.
+
+    Returns:
+        True if a contradiction is detected; False otherwise.
+    """
+    # Same-variable conflict
+    for prev in prior_evidence:
+        if prev.variable == obs.variable and prev.value != obs.value:
+            return True
+
+    # High-confidence reversal
+    old_map = max(
+        beliefs_before.probabilities,
+        key=lambda h: beliefs_before.probabilities[h],
+    )
+    old_prob = beliefs_before.probabilities[old_map]
+    new_prob = beliefs_after.probabilities[old_map]
+    if old_prob > 0.8 and (old_prob - new_prob) > 0.3:
+        return True
+
+    return False
+
+
 # --- Pipeline stage functions ---
 
 
@@ -200,20 +268,44 @@ def bayes_test(
 
     Processes observations in order. For each one, calls R(B, e, O)
     to get updated beliefs, then appends the observation to evidence.
+    Detects anomalies (oscillation and contradiction) after each update.
     Clears pending_observations when done.
+
+    Args:
+        state: current epistemic state with pending observations.
+
+    Returns:
+        Updated state with final beliefs, accumulated evidence, and anomalies.
     """
     beliefs = state.beliefs
     evidence_list = list(state.evidence)
+    anomalies = list(state.metadata.anomalies)
+    confidence_history: list[float] = []
 
     for obs in state.metadata.pending_observations:
+        beliefs_before = beliefs
         beliefs = state.revision_policy(beliefs, obs, state.ontology)
         evidence_list.append(obs)
+        map_prob = beliefs.probabilities[bayes_argmax(beliefs)]
+        confidence_history.append(map_prob)
+
+        if _detect_contradiction(
+            obs, tuple(evidence_list[:-1]), beliefs_before, beliefs,
+        ):
+            anomalies.append("contradiction")
+
+        if _detect_oscillation(confidence_history):
+            anomalies.append("oscillation")
 
     return replace(
         state,
         beliefs=beliefs,
         evidence=tuple(evidence_list),
-        metadata=replace(state.metadata, pending_observations=()),
+        metadata=replace(
+            state.metadata,
+            pending_observations=(),
+            anomalies=tuple(anomalies),
+        ),
     )
 
 

@@ -356,6 +356,71 @@ class TestConfidenceWeightedUpdates:
         assert math.isclose(total, 1.0, rel_tol=1e-9)
 
 
+class TestAnomalyDetection:
+    """Anomaly detection in bayes_test: oscillation and contradiction."""
+
+    def _oscillation_problem(self) -> BayesProblem:
+        """6 observations alternating strong evidence for A then B."""
+        return BayesProblem(
+            hypotheses=("A", "B"),
+            observables=("x",),
+            likelihoods={
+                ("A", "x", "pro_A"): 0.95,
+                ("B", "x", "pro_A"): 0.05,
+                ("A", "x", "pro_B"): 0.05,
+                ("B", "x", "pro_B"): 0.95,
+            },
+            observations=(
+                Observation(variable="x", value="pro_A", source="t", timestamp=1.0),
+                Observation(variable="x", value="pro_B", source="t", timestamp=2.0),
+                Observation(variable="x", value="pro_A", source="t", timestamp=3.0),
+                Observation(variable="x", value="pro_B", source="t", timestamp=4.0),
+                Observation(variable="x", value="pro_A", source="t", timestamp=5.0),
+                Observation(variable="x", value="pro_B", source="t", timestamp=6.0),
+            ),
+        )
+
+    def test_oscillation_detected(self):
+        result = run_bayesian_pipeline(self._oscillation_problem())
+        assert "oscillation" in result.final_state.metadata.anomalies
+
+    def test_no_oscillation_on_normal_convergence(self):
+        result = run_bayesian_pipeline(_medical_problem())
+        assert "oscillation" not in result.final_state.metadata.anomalies
+
+    def test_same_variable_contradiction(self):
+        problem = BayesProblem(
+            hypotheses=("A", "B"),
+            observables=("x",),
+            likelihoods={
+                ("A", "x", "yes"): 0.9, ("B", "x", "yes"): 0.1,
+                ("A", "x", "no"): 0.1, ("B", "x", "no"): 0.9,
+            },
+            observations=(
+                Observation(variable="x", value="yes", source="t", timestamp=1.0),
+                Observation(variable="x", value="no", source="t", timestamp=2.0),
+            ),
+        )
+        result = run_bayesian_pipeline(problem)
+        assert "contradiction" in result.final_state.metadata.anomalies
+
+    def test_high_confidence_reversal(self):
+        problem = BayesProblem(
+            hypotheses=("A", "B"),
+            observables=("x", "y"),
+            likelihoods={
+                ("A", "x", "1"): 0.99, ("B", "x", "1"): 0.01,
+                ("A", "y", "1"): 0.01, ("B", "y", "1"): 0.99,
+            },
+            observations=(
+                Observation(variable="x", value="1", source="t", timestamp=1.0),
+                Observation(variable="y", value="1", source="t", timestamp=2.0),
+            ),
+        )
+        result = run_bayesian_pipeline(problem)
+        assert "contradiction" in result.final_state.metadata.anomalies
+
+
 class TestEvidenceType:
     """EvidenceType and confidence fields on Observation."""
 
