@@ -122,30 +122,27 @@ def bayes_argmax(beliefs: BayesBeliefs) -> str:
     return max(beliefs.probabilities, key=lambda h: beliefs.probabilities[h])
 
 
-def _detect_oscillation(confidence_history: list[float]) -> bool:
-    """Check for oscillation: max-probability reverses direction >= 3 times.
+def _detect_oscillation(map_history: list[str]) -> bool:
+    """Check for oscillation: MAP hypothesis changes >= 3 times in last 6 steps.
 
-    confidence_history contains the MAP probability after each evidence step.
-    A direction reversal is when the MAP probability goes from rising to
-    falling or vice versa. Three reversals in six steps means the evidence
-    is pushing beliefs back and forth without convergence.
+    map_history contains the MAP hypothesis name after each evidence step.
+    A change is when consecutive entries differ. A single flip is normal
+    belief evolution. Three flips in six steps means the evidence is
+    pushing beliefs back and forth without convergence.
 
     Args:
-        confidence_history: MAP probability after each evidence step.
+        map_history: MAP hypothesis name after each evidence step.
 
     Returns:
         True if oscillation is detected; False otherwise.
     """
-    window = confidence_history[-6:]
-    if len(window) < 3:
+    window = map_history[-6:]
+    if len(window) < 2:
         return False
-    reversals = 0
-    for i in range(1, len(window) - 1):
-        prev_rising = window[i] > window[i - 1]
-        next_rising = window[i + 1] > window[i]
-        if prev_rising != next_rising:
-            reversals += 1
-    return reversals >= 3
+    transitions = sum(
+        1 for i in range(len(window) - 1) if window[i] != window[i + 1]
+    )
+    return transitions >= 3
 
 
 def _detect_contradiction(
@@ -159,9 +156,8 @@ def _detect_contradiction(
     Two triggers:
     1. Same-variable conflict: another observation of this variable
        had a different value.
-    2. High-confidence reversal: the old MAP had probability > 0.8,
-       and that same hypothesis lost more than 0.3 probability after
-       the update.
+    2. High-confidence reversal: the MAP hypothesis changed AND
+       the old MAP had probability > 0.8 before the update.
 
     Args:
         obs: the observation just processed.
@@ -177,14 +173,16 @@ def _detect_contradiction(
         if prev.variable == obs.variable and prev.value != obs.value:
             return True
 
-    # High-confidence reversal
+    # High-confidence reversal: MAP changed AND old MAP had probability > 0.8
     old_map = max(
         beliefs_before.probabilities,
         key=lambda h: beliefs_before.probabilities[h],
     )
-    old_prob = beliefs_before.probabilities[old_map]
-    new_prob = beliefs_after.probabilities[old_map]
-    if old_prob > 0.8 and (old_prob - new_prob) > 0.3:
+    new_map = max(
+        beliefs_after.probabilities,
+        key=lambda h: beliefs_after.probabilities[h],
+    )
+    if old_map != new_map and beliefs_before.probabilities[old_map] > 0.8:
         return True
 
     return False
@@ -280,21 +278,20 @@ def bayes_test(
     beliefs = state.beliefs
     evidence_list = list(state.evidence)
     anomalies = list(state.metadata.anomalies)
-    confidence_history: list[float] = []
+    map_history: list[str] = []
 
     for obs in state.metadata.pending_observations:
         beliefs_before = beliefs
         beliefs = state.revision_policy(beliefs, obs, state.ontology)
         evidence_list.append(obs)
-        map_prob = beliefs.probabilities[bayes_argmax(beliefs)]
-        confidence_history.append(map_prob)
+        map_history.append(bayes_argmax(beliefs))
 
         if _detect_contradiction(
             obs, tuple(evidence_list[:-1]), beliefs_before, beliefs,
         ):
             anomalies.append("contradiction")
 
-        if _detect_oscillation(confidence_history):
+        if _detect_oscillation(map_history):
             anomalies.append("oscillation")
 
     return replace(

@@ -360,23 +360,33 @@ class TestAnomalyDetection:
     """Anomaly detection in bayes_test: oscillation and contradiction."""
 
     def _oscillation_problem(self) -> BayesProblem:
-        """6 observations alternating strong evidence for A then B."""
+        """6 observations with alternating evidence that flips the MAP hypothesis.
+
+        Uses different variables to avoid same-variable contradiction.
+        Pro-B evidence (0.005/0.995) is slightly stronger than pro-A (0.99/0.01).
+        This asymmetry ensures each counter-observation overwhelms the prior,
+        genuinely flipping the MAP label back and forth.
+        """
         return BayesProblem(
             hypotheses=("A", "B"),
-            observables=("x",),
+            observables=("v1", "v2", "v3", "v4", "v5", "v6"),
             likelihoods={
-                ("A", "x", "pro_A"): 0.95,
-                ("B", "x", "pro_A"): 0.05,
-                ("A", "x", "pro_B"): 0.05,
-                ("B", "x", "pro_B"): 0.95,
+                # Pro-A evidence: strong but not overwhelming
+                ("A", "v1", "a"): 0.99, ("B", "v1", "a"): 0.01,
+                ("A", "v3", "a"): 0.99, ("B", "v3", "a"): 0.01,
+                ("A", "v5", "a"): 0.99, ("B", "v5", "a"): 0.01,
+                # Pro-B evidence: slightly stronger, overwhelms accumulated pro-A
+                ("A", "v2", "b"): 0.005, ("B", "v2", "b"): 0.995,
+                ("A", "v4", "b"): 0.005, ("B", "v4", "b"): 0.995,
+                ("A", "v6", "b"): 0.005, ("B", "v6", "b"): 0.995,
             },
             observations=(
-                Observation(variable="x", value="pro_A", source="t", timestamp=1.0),
-                Observation(variable="x", value="pro_B", source="t", timestamp=2.0),
-                Observation(variable="x", value="pro_A", source="t", timestamp=3.0),
-                Observation(variable="x", value="pro_B", source="t", timestamp=4.0),
-                Observation(variable="x", value="pro_A", source="t", timestamp=5.0),
-                Observation(variable="x", value="pro_B", source="t", timestamp=6.0),
+                Observation(variable="v1", value="a", source="t", timestamp=1.0),
+                Observation(variable="v2", value="b", source="t", timestamp=2.0),
+                Observation(variable="v3", value="a", source="t", timestamp=3.0),
+                Observation(variable="v4", value="b", source="t", timestamp=4.0),
+                Observation(variable="v5", value="a", source="t", timestamp=5.0),
+                Observation(variable="v6", value="b", source="t", timestamp=6.0),
             ),
         )
 
@@ -405,12 +415,17 @@ class TestAnomalyDetection:
         assert "contradiction" in result.final_state.metadata.anomalies
 
     def test_high_confidence_reversal(self):
+        """MAP shift when prior MAP had probability > 0.8 flags contradiction.
+
+        First observation strongly favors A (P(A)->0.99).
+        Second observation must be much stronger to overwhelm the prior and flip MAP.
+        """
         problem = BayesProblem(
             hypotheses=("A", "B"),
             observables=("x", "y"),
             likelihoods={
                 ("A", "x", "1"): 0.99, ("B", "x", "1"): 0.01,
-                ("A", "y", "1"): 0.01, ("B", "y", "1"): 0.99,
+                ("A", "y", "1"): 0.0001, ("B", "y", "1"): 0.9999,
             },
             observations=(
                 Observation(variable="x", value="1", source="t", timestamp=1.0),
