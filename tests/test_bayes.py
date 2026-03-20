@@ -315,6 +315,47 @@ class TestBayesOntologyAdequacy:
         assert ontology.adequate(()) is True
 
 
+class TestConfidenceWeightedUpdates:
+    """Confidence-weighted Bayes: L_eff(e|h) = c*P(e|h) + (1-c)*P(e)."""
+
+    def _simple_ontology(self) -> BayesOntology:
+        return BayesOntology(
+            hypotheses=("A", "B"),
+            observables=("x",),
+            likelihoods={("A", "x", "1"): 0.9, ("B", "x", "1"): 0.1},
+        )
+
+    def test_full_confidence_matches_standard_bayes(self):
+        ontology = self._simple_ontology()
+        beliefs = BayesBeliefs(probabilities={"A": 0.5, "B": 0.5})
+        obs = Observation(variable="x", value="1", source="t", timestamp=0.0, confidence=1.0)
+        updated = bayes_update(beliefs, obs, ontology)
+        assert math.isclose(updated.probabilities["A"], 0.9, rel_tol=1e-9)
+
+    def test_zero_confidence_is_noop(self):
+        ontology = self._simple_ontology()
+        beliefs = BayesBeliefs(probabilities={"A": 0.5, "B": 0.5})
+        obs = Observation(variable="x", value="1", source="t", timestamp=0.0, confidence=0.0)
+        updated = bayes_update(beliefs, obs, ontology)
+        assert math.isclose(updated.probabilities["A"], 0.5, rel_tol=1e-9)
+        assert math.isclose(updated.probabilities["B"], 0.5, rel_tol=1e-9)
+
+    def test_half_confidence_dampens_update(self):
+        ontology = self._simple_ontology()
+        beliefs = BayesBeliefs(probabilities={"A": 0.5, "B": 0.5})
+        obs = Observation(variable="x", value="1", source="t", timestamp=0.0, confidence=0.5)
+        updated = bayes_update(beliefs, obs, ontology)
+        assert 0.5 < updated.probabilities["A"] < 0.9
+
+    def test_low_confidence_preserves_normalization(self):
+        ontology = self._simple_ontology()
+        beliefs = BayesBeliefs(probabilities={"A": 0.5, "B": 0.5})
+        obs = Observation(variable="x", value="1", source="t", timestamp=0.0, confidence=0.3)
+        updated = bayes_update(beliefs, obs, ontology)
+        total = sum(updated.probabilities.values())
+        assert math.isclose(total, 1.0, rel_tol=1e-9)
+
+
 class TestEvidenceType:
     """EvidenceType and confidence fields on Observation."""
 

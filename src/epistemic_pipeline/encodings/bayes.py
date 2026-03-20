@@ -65,28 +65,42 @@ def bayes_update(
     evidence: Observation,
     ontology: BayesOntology,
 ) -> BayesBeliefs:
-    """Apply Bayes' rule for one observation: R(B, e, O) -> B'.
+    """Apply confidence-weighted Bayes' rule: R(B, e, O) -> B'.
 
-    P'(h) = P(e|h) * P(h) / sum_h'(P(e|h') * P(h')).
+    L_eff(e|h) = c * P(e|h) + (1 - c) * P(e)
+    P'(h) = L_eff(e|h) * P(h) / sum_h'(L_eff(e|h') * P(h'))
+
+    c is evidence.confidence. At c=1.0, this is standard Bayes.
+    At c=0.0, L_eff equals the marginal for all h, so beliefs don't change.
 
     Args:
         beliefs: current probability distribution over hypotheses.
-        evidence: the observation (variable, value pair).
+        evidence: the observation, including its confidence weight.
         ontology: contains the likelihood table.
 
     Returns:
         Updated BayesBeliefs with normalized posterior probabilities.
     """
+    c = evidence.confidence
+
+    # Raw likelihoods P(e|h)
+    raw: dict[str, float] = {}
+    for h in ontology.hypotheses:
+        raw[h] = ontology.likelihoods.get(
+            (h, evidence.variable, evidence.value), 0.0,
+        )
+
+    # Marginal P(e) = sum_h P(e|h) * P(h)
+    marginal = sum(
+        raw[h] * beliefs.probabilities[h] for h in ontology.hypotheses
+    )
+
+    # Effective likelihood: L_eff(e|h) = c * P(e|h) + (1 - c) * P(e)
     posteriors: dict[str, float] = {}
     total = 0.0
-
     for h in ontology.hypotheses:
-        likelihood = ontology.likelihoods.get(
-            (h, evidence.variable, evidence.value),
-            0.0,
-        )
-        prior = beliefs.probabilities[h]
-        unnormalized = likelihood * prior
+        l_eff = c * raw[h] + (1.0 - c) * marginal
+        unnormalized = l_eff * beliefs.probabilities[h]
         posteriors[h] = unnormalized
         total += unnormalized
 
