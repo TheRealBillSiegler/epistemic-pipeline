@@ -216,7 +216,3 @@ This project draws on several traditions. It doesn't replace any of them.
 **What this project does not cover.** Goals and motivation (central to SOAR and human cognition). Attention and salience. Dual-process reasoning (fast intuitive judgment vs. slow deliberation — Kahneman). Bounded rationality (reasoning under limited time and memory — Simon, Gigerenzer). Online metacognitive monitoring. Active inference (Friston). These reflect scope decisions for v0.1, not claims that they don't matter.
 
 **What's new here.** Few frameworks separate vocabulary, evidence, credences, and revision into a typed, immutable state tuple that preserves every trace. Fewer score each run against epistemic norms. Is this genuinely illuminating, or just a relabeling of generic state machines? The expressiveness proofs must answer that. Each encoding must preserve what makes its framework distinct.
-
----
-
-*Graduate-level ideas. 8th-grade sentences.*
