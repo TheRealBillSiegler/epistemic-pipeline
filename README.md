@@ -6,7 +6,7 @@ Not a prompt. Not a chain. A formal system that tracks what it knows, what it be
 
 [Formal Spec](docs/spec/) · [Reference Implementation](src/epistemic_pipeline/) · [Design Document](docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md)
 
-`pip install -e .` | Python 3.14+ | Zero dependencies | MIT License
+`uv pip install -e .` | Python 3.14+ | Zero dependencies | MIT License
 
 ---
 
@@ -169,7 +169,7 @@ If all four fit, the architecture covers the major reasoning paradigms in AI and
 
 ```bash
 # Install
-pip install -e .
+uv pip install -e .
 
 # Test
 pytest
