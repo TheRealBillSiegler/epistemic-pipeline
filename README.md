@@ -1,60 +1,32 @@
-<p align="center">
-  <h1 align="center">Epistemic Pipeline</h1>
-  <p align="center">
-    <strong>What if reasoning had an architecture?</strong>
-    <br />
-    Not a prompt. Not a chain. A formal system that tracks what it knows,<br />what it believes, and <em>how it decides to change its mind</em>.
-  </p>
-  <p align="center">
-    <a href="docs/spec/">Formal Spec</a> &middot;
-    <a href="src/epistemic_pipeline/">Reference Implementation</a> &middot;
-    <a href="docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md">Design Document</a>
-  </p>
-</p>
+# Epistemic Pipeline
 
-<br />
+**What if reasoning had an architecture?**
 
-<p align="center">
-  <code>pip install -e .</code> &nbsp;&nbsp;|&nbsp;&nbsp; Python 3.14+ &nbsp;&nbsp;|&nbsp;&nbsp; Zero dependencies &nbsp;&nbsp;|&nbsp;&nbsp; MIT License
-</p>
+Not a prompt. Not a chain. A formal system that tracks what it knows, what it believes, and *how it decides to change its mind*.
+
+[Formal Spec](docs/spec/) · [Reference Implementation](src/epistemic_pipeline/) · [Design Document](docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md)
+
+`pip install -e .` | Python 3.14+ | Zero dependencies | MIT License
 
 ---
-
-<br />
 
 ## The Idea
 
 Every reasoning system — human or artificial — does four things:
 
-> **1.** Defines a vocabulary for the problem &nbsp;→&nbsp; what concepts exist?
-> **2.** Gathers evidence &nbsp;→&nbsp; what has been observed?
-> **3.** Holds beliefs &nbsp;→&nbsp; what does it think is true?
-> **4.** Revises those beliefs when new evidence arrives &nbsp;→&nbsp; how does it update?
+1. **Defines a vocabulary** for the problem → what concepts exist?
+2. **Gathers evidence** → what has been observed?
+3. **Holds beliefs** → what does it think is true?
+4. **Revises those beliefs** when new evidence arrives → how does it update?
 
 This project makes those four things explicit:
 
-<table>
-<tr>
-<td width="120"><strong>O</strong><br /><sub>Ontology</sub></td>
-<td width="200">The vocabulary of the problem</td>
-<td><code>diseases: [flu, cold, covid]</code><br /><code>symptoms: [fever, cough, loss_of_smell]</code></td>
-</tr>
-<tr>
-<td><strong>E</strong><br /><sub>Evidence</sub></td>
-<td>What has been observed</td>
-<td><code>[fever=true, cough=true, loss_of_smell=true]</code></td>
-</tr>
-<tr>
-<td><strong>B</strong><br /><sub>Beliefs</sub></td>
-<td>Current confidence in each hypothesis</td>
-<td><code>{flu: 0.03, cold: 0.01, covid: 0.96}</code></td>
-</tr>
-<tr>
-<td><strong>R</strong><br /><sub>Revision</sub></td>
-<td>The rule for updating beliefs</td>
-<td>Bayes' rule, search algorithms, Bellman updates — your choice</td>
-</tr>
-</table>
+| | Component | What it is | Example |
+|:-:|-----------|-----------|---------|
+| **O** | Ontology | The vocabulary of the problem | `diseases: [flu, cold, covid]` / `symptoms: [fever, cough, loss_of_smell]` |
+| **E** | Evidence | What has been observed | `[fever=true, cough=true, loss_of_smell=true]` |
+| **B** | Beliefs | Current confidence in each hypothesis | `{flu: 0.03, cold: 0.01, covid: 0.96}` |
+| **R** | Revision | The rule for updating beliefs | Bayes' rule, search algorithms, Bellman updates — your choice |
 
 **R is the key.** Swap it and you get a completely different reasoning system:
 
@@ -64,11 +36,11 @@ This project makes those four things explicit:
 
 Everything else stays the same.
 
-<br />
+---
 
 ## Why This Matters
 
-Most AI systems are black boxes. They produce fluent outputs. They don't track *why* they believe what they believe. They can't replay their reasoning. They can't evaluate whether their own process was any good.
+Most AI systems are black boxes. They produce fluent outputs. They don't track *why* they believe what they believe. They can't replay their reasoning. They can't grade whether their own process was any good.
 
 This system can.
 
@@ -78,12 +50,12 @@ Every state is frozen. Every transition is a pure function. The full reasoning t
 
 That's not a feature. That's the point.
 
-<br />
+---
 
 ## What It Looks Like
 
 ```python
-from epistemic_pipeline import EpistemicState, run_pipeline
+from epistemic_pipeline import run_pipeline
 from epistemic_pipeline.encodings.bayes import (
     BayesOntology, BayesBelief, BayesRevision, bayes_stages,
 )
@@ -113,17 +85,25 @@ result = run_pipeline(
 
 print(result.beliefs)
 # → {flu: 0.03, cold: 0.01, covid: 0.96}
+
+# Replay the reasoning trace
+for i, state in enumerate(result.trace):
+    print(f"Step {i}: {state.beliefs}")
+# → Step 0: {flu: 0.40, cold: 0.40, covid: 0.20}
+# → Step 1: {flu: 0.35, cold: 0.13, covid: 0.52}   (after fever)
+# → Step 2: {flu: 0.29, cold: 0.14, covid: 0.57}   (after cough)
+# → Step 3: {flu: 0.03, cold: 0.01, covid: 0.96}   (after loss_of_smell)
 ```
 
 Three symptoms in. One diagnosis out. Every step recorded and replayable.
 
-<br />
+---
 
 ## The Architecture
 
-Two views of one system. The **stack** is vertical — what kinds of modules exist. The **tuple** is horizontal — what changes as reasoning progresses.
+Two views of one system. The **stack** describes what kinds of modules exist. The **tuple** describes what changes as reasoning progresses.
 
-```
+```text
   ╔═══════════════════════════════════════════════════════════════╗
   ║                    META-EPISTEMIC LAYER                      ║
   ║         watches everything · decides what to do next         ║
@@ -147,32 +127,32 @@ Two views of one system. The **stack** is vertical — what kinds of modules exi
 Each layer reads and writes different parts of the state tuple:
 
 | Layer | O | E | B | R |
-|-------|:-:|:-:|:-:|:-:|
+|-------|---|---|---|---|
 | **Tool / Environment** | provides | **produces** | — | — |
-| **Cognitive Process** | **transforms** | reads | **transforms** | — |
+| **Cognitive Process** | reads | reads | **transforms** | — |
 | **Pipeline** | sequences | sequences | sequences | — |
 | **Norms** | evaluates | evaluates | evaluates | evaluates |
 | **Meta-Epistemic** | re-frames | requests more | forces revision | **modifies** |
 
-<br />
+---
 
 ## v0.1 — Deliberately Small, Deliberately Rigorous
 
-- [x] Deterministic state machine implementing `(O, E, B, R)`
-- [x] Bayesian inference as the first expressiveness proof
-- [x] Toy medical diagnosis running end-to-end
-- [x] Full state trace, norm scoring, meta-layer stub
-- [ ] No LLM. No external dependencies. Pure Python.
+**Status: spec complete, implementation in progress.**
 
-The formal spec lives in [`docs/spec/`](docs/spec/). The code lives in [`src/epistemic_pipeline/`](src/epistemic_pipeline/). They reference each other but neither imports the other.
+- Deterministic state machine implementing `(O, E, B, R)`
+- Bayesian inference as the first expressiveness proof
+- Toy medical diagnosis running end-to-end
+- Full state trace, norm scoring, meta-layer stub
+- No LLM. No external dependencies. Pure Python.
 
-**The spec is publishable. The code is installable.**
+The formal spec lives in [`docs/spec/`](docs/spec/). The code lives in [`src/epistemic_pipeline/`](src/epistemic_pipeline/). The spec defines the interfaces. The code implements them. Neither imports the other.
 
-<br />
+---
 
 ## Expressiveness Roadmap
 
-The architecture is general. v0.1 proves it with one framework. The roadmap proves it with four:
+v0.1 proves the architecture works with one framework. The roadmap tests it with four:
 
 | | Framework | What it proves | R becomes |
 |:-:|-----------|---------------|-----------|
@@ -181,9 +161,9 @@ The architecture is general. v0.1 proves it with one framework. The roadmap prov
 | **v0.3** | Newell & Simon | General problem solving | Operator selection |
 | **v0.4** | MDPs | Decisions under uncertainty | Bellman updates |
 
-If all four fit, the architecture can express every major reasoning paradigm in AI and cognitive science.
+If all four fit, the architecture covers the major reasoning paradigms in AI and cognitive science.
 
-<br />
+---
 
 ## Quick Start
 
@@ -198,11 +178,11 @@ pytest
 pyright
 ```
 
-<br />
+---
 
 ## Project Structure
 
-```
+```text
 epistemic-pipeline/
 ├── docs/spec/                      Formal specification — standalone, publishable
 ├── src/epistemic_pipeline/         Reference implementation — standalone, installable
@@ -211,26 +191,24 @@ epistemic-pipeline/
 └── pyproject.toml
 ```
 
-<br />
+---
 
 ## Related Work
 
-This project draws on several traditions but doesn't duplicate any of them.
+This project draws on several traditions. It doesn't replace any of them.
 
-**Belief revision theory.** The [AGM framework](https://plato.stanford.edu/entries/logic-belief-revision/) (Alchourrón, Gärdenfors, Makinson) defines axioms for how rational agents should change their beliefs. Our R component generalizes AGM — it's a pluggable slot where Bayes' rule, AGM contraction, or any other revision policy can live.
+**Belief revision theory.** The [AGM framework](https://plato.stanford.edu/entries/logic-belief-revision/) defines axioms for rational belief change. Our R component accommodates AGM as one possible revision policy. Plug in AGM-compliant contraction and the axioms hold. Plug in Bayes' rule and you get a different system.
 
-**Goldman's reliabilism.** Alvin Goldman's [*Epistemology and Cognition*](https://www.hup.harvard.edu/books/9780674258969) (1986) argues that a cognitive process is epistemically good if it reliably produces true beliefs. Our Norms layer (reliability, power, efficiency, justification) operationalizes Goldman's framework as computable scores over a reasoning trace.
+**Goldman's reliabilism.** Goldman's [*Epistemology and Cognition*](https://www.hup.harvard.edu/books/9780674258969) (1986) argues that a belief is justified if the process that produced it reliably tracks truth. Our Norms layer draws on this idea. It scores each pipeline run for reliability, efficiency, and justification.
 
-**Cognitive architectures.** [ACT-R](http://act-r.psy.cmu.edu/) and [SOAR](https://soar.eecs.umich.edu/) model human cognition as modular systems with memory, perception, and production rules. Our 5-layer stack shares this modular philosophy but adds epistemic norms and a formal state model that those architectures lack.
+**Cognitive architectures.** [ACT-R](http://act-r.psy.cmu.edu/) and [SOAR](https://soar.eecs.umich.edu/) model human cognition as modular systems with memory, perception, and production rules. Our 5-layer stack shares this modular philosophy. It adds explicit normative evaluation that those architectures don't provide.
 
-**Epistemic integrity in AI.** [*Beyond Prediction: Structuring Epistemic Integrity in Artificial Reasoning Systems*](https://arxiv.org/html/2506.17331) (2025) proposes an architecture where AI agents justify beliefs according to normative standards. Similar goals, different formalism — they use Kripke semantics and formal logic; we use a state-machine pipeline with pluggable revision policies.
+**Probabilistic programming.** Languages like Pyro, Stan, and WebPPL bundle models, data, and inference into one framework. They excel at probabilistic reasoning. Our architecture is broader — R can be Bayesian inference, but it can also be search, planning, or decision-theoretic. The pipeline, norms, and meta-layer have no equivalent in probabilistic programming.
 
-**What's new here:** No existing framework bundles ontology, evidence, beliefs, and revision into a generic state tuple, runs it through a scored pipeline, and proves expressiveness by encoding multiple reasoning paradigms as special cases of one architecture.
+**Epistemic integrity in AI.** [*Beyond Prediction*](https://arxiv.org/html/2506.17331) (preprint, 2025) proposes an architecture where AI agents justify beliefs under formal constraints. Similar goals, different formalism. They use Kripke semantics. We use a state-machine pipeline with pluggable revision policies.
 
-<br />
+**What's new here.** Few frameworks explicitly separate ontology, evidence, beliefs, and revision as a generic typed state tuple. Fewer run that tuple through a scored pipeline. None we've found prove expressiveness by encoding multiple reasoning paradigms as special cases of one architecture.
 
 ---
 
-<p align="center">
-  <sub>Graduate-level ideas. 8th-grade sentences. Rigorous structures, simple prose.</sub>
-</p>
+*Graduate-level ideas. 8th-grade sentences. Rigorous structures, simple prose.*
