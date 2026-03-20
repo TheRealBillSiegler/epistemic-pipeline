@@ -436,6 +436,156 @@ class TestAnomalyDetection:
         assert "contradiction" in result.final_state.metadata.anomalies
 
 
+class TestExtendedNorms:
+    """v0.2 norm extensions: calibration, heuristic cost, consistency, power."""
+
+    def test_calibration_perfect(self):
+        """calibration = log(B(h*)) = 0.0 when B(h*) = 1.0."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+            belief_probability=lambda b, h: b.probabilities[h],
+        )
+
+        # flu probability is high but not 1.0, so calibration < 0
+        assert scores.calibration < 0.0
+
+    def test_calibration_uses_log_scoring(self):
+        """calibration = log(B_final(h*)) for the ground truth hypothesis."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        p_flu = result.final_state.beliefs.probabilities["flu"]
+        expected_cal = math.log(p_flu)
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+            belief_probability=lambda b, h: b.probabilities[h],
+        )
+
+        assert math.isclose(scores.calibration, expected_cal, rel_tol=1e-9)
+
+    def test_v01_scoring_still_works(self):
+        """Calling score_pipeline_run with only v0.1 args still works."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+        )
+
+        assert scores.reliability == 1.0
+        assert scores.efficiency == 6
+        assert scores.justification is True
+        assert scores.power is None
+        assert scores.calibration == 0.0  # default
+
+    def test_power_with_adequate_ontology(self):
+        """power = True when ontology covers all evidence."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+            ontology_adequate=lambda o, e: o.adequate(e),
+        )
+
+        assert scores.power is True
+
+    def test_intermediate_consistency_checked(self):
+        """Intermediate consistency calls the provided checker."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        def check_bayes_consistent(
+            beliefs: BayesBeliefs, ontology: BayesOntology,
+        ) -> bool:
+            total = sum(beliefs.probabilities.values())
+            return math.isclose(total, 1.0, rel_tol=1e-6)
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+            belief_consistent=check_bayes_consistent,
+        )
+
+        assert scores.justification_intermediate_consistent is True
+
+    def test_strategy_switches_from_metadata(self):
+        """Strategy switches are read from the final state metadata."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+        )
+
+        assert scores.efficiency_strategy_switches == 0
+
+    def test_calibration_neg_inf_when_zero_probability(self):
+        """calibration = -inf when B(h*) = 0."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="nonexistent_hypothesis",
+            belief_argmax=bayes_argmax,
+            belief_probability=lambda b, h: b.probabilities.get(h, 0.0),
+        )
+
+        assert scores.calibration == float("-inf")
+
+    def test_power_false_through_scorer(self):
+        """power = False when ontology doesn't cover all evidence."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        def always_inadequate(
+            ontology: BayesOntology, evidence: tuple[Observation, ...],
+        ) -> bool:
+            return False
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+            ontology_adequate=always_inadequate,
+        )
+
+        assert scores.power is False
+
+    def test_heuristic_cost_passed_through(self):
+        """Heuristic cost is passed as a parameter."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+            heuristic_cost=42,
+        )
+
+        assert scores.efficiency_heuristic_cost == 42
+
+    def test_heuristic_cost_defaults_to_zero(self):
+        """Heuristic cost defaults to 0 when not provided."""
+        result = run_bayesian_pipeline(_medical_problem())
+
+        scores = score_pipeline_run(
+            result.trace,
+            ground_truth="flu",
+            belief_argmax=bayes_argmax,
+        )
+
+        assert scores.efficiency_heuristic_cost == 0
+
+
 class TestEvidenceType:
     """EvidenceType and confidence fields on Observation."""
 
