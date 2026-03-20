@@ -83,7 +83,7 @@ Supports:
 
 A callable specification of how to update B given new E.
 
-**Signature:** `R: (B, E, O) → B'`
+**Signature:** `R: (B, e, O) → B'` where `e` is a single observation (not the full evidence collection). R is applied per-observation during Stage 5; the pipeline manages the evidence accumulation.
 
 Properties:
 - **Pure** — no side effects
@@ -101,7 +101,7 @@ class EpistemicState(Generic[O_t, E_t, B_t, R_t]):
     evidence: E_t
     beliefs: B_t
     revision_policy: R_t
-    metadata: dict  # decomposition, strategy — keeps core tuple clean
+    metadata: MappingProxyType  # decomposition, strategy — immutable view, keeps core tuple clean
 ```
 
 **Critical invariant:** The state is immutable per pipeline step. Each transition produces a new state. This gives full auditability, replayability, and deterministic traces.
