@@ -269,6 +269,52 @@ class TestStateImmutability:
             raise AssertionError("PipelineResult should be frozen")
 
 
+class TestBayesOntologyAdequacy:
+    """BayesOntology.adequate(E) returns True when every observation's
+    (variable, value) pair has a likelihood entry for at least one hypothesis."""
+
+    def test_adequate_when_all_evidence_covered(self):
+        ontology = BayesOntology(
+            hypotheses=("A", "B"),
+            observables=("x",),
+            likelihoods={("A", "x", "1"): 0.8, ("B", "x", "1"): 0.2},
+        )
+        evidence = (
+            Observation(variable="x", value="1", source="test", timestamp=0.0),
+        )
+        assert ontology.adequate(evidence) is True
+
+    def test_inadequate_when_unknown_variable(self):
+        ontology = BayesOntology(
+            hypotheses=("A",),
+            observables=("x",),
+            likelihoods={("A", "x", "1"): 0.8},
+        )
+        evidence = (
+            Observation(variable="y", value="1", source="test", timestamp=0.0),
+        )
+        assert ontology.adequate(evidence) is False
+
+    def test_inadequate_when_unknown_value(self):
+        ontology = BayesOntology(
+            hypotheses=("A",),
+            observables=("x",),
+            likelihoods={("A", "x", "1"): 0.8},
+        )
+        evidence = (
+            Observation(variable="x", value="999", source="test", timestamp=0.0),
+        )
+        assert ontology.adequate(evidence) is False
+
+    def test_adequate_with_empty_evidence(self):
+        ontology = BayesOntology(
+            hypotheses=("A",),
+            observables=("x",),
+            likelihoods={("A", "x", "1"): 0.8},
+        )
+        assert ontology.adequate(()) is True
+
+
 class TestEvidenceType:
     """EvidenceType and confidence fields on Observation."""
 
