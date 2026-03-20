@@ -1,7 +1,7 @@
 """STRIPS planning tests: blocks world scenario.
 
 Two blocks (A, B) on a table. Goal: stack A on B.
-Expected plan: [pickup_A, stack_A_B].
+Expected plan: [pickup_a, stack_a_b].
 """
 
 from epistemic_pipeline.encodings.strips import (
@@ -23,14 +23,14 @@ def _blocks_world() -> STRIPSProblem:
         "on_A_B", "holding_A",
     })
 
-    pickup_A = STRIPSAction(
-        name="pickup_A",
+    pickup_a = STRIPSAction(
+        name="pickup_a",
         preconditions=frozenset({"on_table_A", "clear_A"}),
         add_effects=frozenset({"holding_A"}),
         delete_effects=frozenset({"on_table_A", "clear_A"}),
     )
-    stack_A_B = STRIPSAction(
-        name="stack_A_B",
+    stack_a_b = STRIPSAction(
+        name="stack_a_b",
         preconditions=frozenset({"holding_A", "clear_B"}),
         add_effects=frozenset({"on_A_B"}),
         delete_effects=frozenset({"holding_A", "clear_B"}),
@@ -41,7 +41,7 @@ def _blocks_world() -> STRIPSProblem:
 
     return STRIPSProblem(
         predicates=predicates,
-        actions=(pickup_A, stack_A_B),
+        actions=(pickup_a, stack_a_b),
         goal=goal,
         initial_state=initial_state,
     )
@@ -126,8 +126,8 @@ class TestSTRIPSUpdate:
         goal_state = frozenset({"on_table_B", "on_A_B"})
         beliefs = STRIPSBeliefs(
             current_state=problem.initial_state,
-            plan=("pickup_A", "stack_A_B"),
-            frontier=((goal_state, ("pickup_A", "stack_A_B")),),
+            plan=("pickup_a", "stack_a_b"),
+            frontier=((goal_state, ("pickup_a", "stack_a_b")),),
             explored=frozenset(),
         )
         step_obs = Observation(
@@ -160,12 +160,12 @@ class TestSTRIPSUpdate:
 
 
 class TestBlocksWorldPipeline:
-    """End-to-end: blocks world finds plan [pickup_A, stack_A_B]."""
+    """End-to-end: blocks world finds plan [pickup_a, stack_a_b]."""
 
     def test_finds_correct_plan(self):
         result = run_strips_pipeline(_blocks_world())
         plan = result.final_state.beliefs.plan
-        assert plan == ("pickup_A", "stack_A_B")
+        assert plan == ("pickup_a", "stack_a_b")
 
     def test_goal_is_satisfied(self):
         result = run_strips_pipeline(_blocks_world())

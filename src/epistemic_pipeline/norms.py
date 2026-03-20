@@ -48,7 +48,7 @@ def _replay_beliefs[O, B](
     return beliefs
 
 
-def score_pipeline_run[O, B](
+def score_pipeline_run[O, B](  # noqa: PLR0913
     trace: tuple[EpistemicState[O, B], ...],
     ground_truth: str,
     belief_argmax: Callable[[B], str],

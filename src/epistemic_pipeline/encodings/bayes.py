@@ -12,6 +12,11 @@ from epistemic_pipeline.meta import MetaController
 from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
 from epistemic_pipeline.state import EpistemicState, Metadata, Observation
 
+_OSCILLATION_WINDOW = 6
+_OSCILLATION_MIN_TRANSITIONS = 3
+_OSCILLATION_MIN_WINDOW = 2
+_HIGH_CONFIDENCE_THRESHOLD = 0.8
+
 
 @dataclass(frozen=True)
 class BayesOntology:
@@ -27,7 +32,7 @@ class BayesOntology:
     observables: tuple[str, ...]
     likelihoods: dict[tuple[str, str, str], float]
 
-    def adequate(self, evidence: "tuple[Observation, ...]") -> bool:
+    def adequate(self, evidence: tuple[Observation, ...]) -> bool:
         """Check if this ontology covers all evidence.
 
         Returns True when every observation's (variable, value) pair
@@ -136,13 +141,13 @@ def _detect_oscillation(map_history: list[str]) -> bool:
     Returns:
         True if oscillation is detected; False otherwise.
     """
-    window = map_history[-6:]
-    if len(window) < 2:
+    window = map_history[-_OSCILLATION_WINDOW:]
+    if len(window) < _OSCILLATION_MIN_WINDOW:
         return False
     transitions = sum(
         1 for i in range(len(window) - 1) if window[i] != window[i + 1]
     )
-    return transitions >= 3
+    return transitions >= _OSCILLATION_MIN_TRANSITIONS
 
 
 def _detect_contradiction(
@@ -182,10 +187,7 @@ def _detect_contradiction(
         beliefs_after.probabilities,
         key=lambda h: beliefs_after.probabilities[h],
     )
-    if old_map != new_map and beliefs_before.probabilities[old_map] > 0.8:
-        return True
-
-    return False
+    return old_map != new_map and beliefs_before.probabilities[old_map] > _HIGH_CONFIDENCE_THRESHOLD
 
 
 # --- Pipeline stage functions ---

@@ -99,7 +99,7 @@ def _apply_action(
 
 def strips_update(
     beliefs: STRIPSBeliefs,
-    evidence: Observation,
+    _evidence: Observation,
     ontology: STRIPSOntology,
 ) -> STRIPSBeliefs:
     """One search expansion step: R(B, e, O) -> B'.

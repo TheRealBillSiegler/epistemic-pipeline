@@ -503,7 +503,7 @@ class TestExtendedNorms:
         result = run_bayesian_pipeline(_medical_problem())
 
         def check_bayes_consistent(
-            beliefs: BayesBeliefs, ontology: BayesOntology,
+            beliefs: BayesBeliefs, _ontology: BayesOntology,
         ) -> bool:
             total = sum(beliefs.probabilities.values())
             return math.isclose(total, 1.0, rel_tol=1e-6)
@@ -547,7 +547,7 @@ class TestExtendedNorms:
         result = run_bayesian_pipeline(_medical_problem())
 
         def always_inadequate(
-            ontology: BayesOntology, evidence: tuple[Observation, ...],
+            _ontology: BayesOntology, _evidence: tuple[Observation, ...],
         ) -> bool:
             return False
 

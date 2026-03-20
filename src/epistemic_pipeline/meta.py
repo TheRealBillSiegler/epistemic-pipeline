@@ -57,6 +57,9 @@ class MetaThresholds:
     expected_efficiency: int = 10
 
 
+_MIN_CONTRADICTIONS_FOR_ESCALATE = 2
+
+
 class MetaController:
     """Meta-epistemic controller with functional decision logic.
 
@@ -90,9 +93,9 @@ class MetaController:
         self,
         trace: tuple[object, ...],
         scores: NormScore | object | None,
-        ontology: object,
-        strategy: str,
-        decomposition: tuple[str, ...],
+        _ontology: object,
+        _strategy: str,
+        _decomposition: tuple[str, ...],
     ) -> MetaResult:
         """Evaluate the current pipeline state and decide how to proceed.
 
@@ -109,7 +112,7 @@ class MetaController:
         anomalies = self._collect_anomalies(trace)
 
         # Import NormScore at runtime to avoid circular import.
-        from epistemic_pipeline.norms import NormScore as _NormScore
+        from epistemic_pipeline.norms import NormScore as _NormScore  # noqa: PLC0415
 
         norm: _NormScore | None = None
         if isinstance(scores, _NormScore):
@@ -117,7 +120,7 @@ class MetaController:
 
         # 1. ESCALATE: repeated contradictions
         contradiction_count = anomalies.count("contradiction")
-        if contradiction_count >= 2:
+        if contradiction_count >= _MIN_CONTRADICTIONS_FOR_ESCALATE:
             return MetaResult(
                 decision=MetaDecision.ESCALATE,
                 details={

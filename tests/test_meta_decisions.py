@@ -20,9 +20,9 @@ class TestMetaAccept:
         result = controller.monitor(
             trace=(),
             scores=NormScore(reliability=0.9, efficiency=5, justification=True, power=True),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.ACCEPT
 
@@ -31,9 +31,9 @@ class TestMetaAccept:
         result = controller.monitor(
             trace=(),
             scores=None,
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.ACCEPT
 
@@ -49,7 +49,7 @@ class TestMetaEscalate:
             ontology=None,
             evidence=(),
             beliefs=None,
-            revision_policy=lambda b, e, o: b,
+            revision_policy=lambda b, _e, _o: b,
             metadata=meta,
         )
 
@@ -57,9 +57,9 @@ class TestMetaEscalate:
         result = controller.monitor(
             trace=(state,),
             scores=NormScore(reliability=0.9, efficiency=5, justification=True, power=True),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.ESCALATE
         assert "contradiction" in str(result.details)
@@ -70,7 +70,7 @@ class TestMetaEscalate:
         meta = Metadata(anomalies=("contradiction", "contradiction"))
         state = EpistemicState(
             ontology=None, evidence=(), beliefs=None,
-            revision_policy=lambda b, e, o: b, metadata=meta,
+            revision_policy=lambda b, _e, _o: b, metadata=meta,
         )
 
         controller = MetaController()
@@ -79,9 +79,9 @@ class TestMetaEscalate:
             scores=NormScore(
                 reliability=0.1, efficiency=5, justification=True, power=False,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.ESCALATE
 
@@ -96,9 +96,9 @@ class TestMetaReframe:
             scores=NormScore(
                 reliability=0.9, efficiency=5, justification=True, power=False,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.REFRAME
 
@@ -109,9 +109,9 @@ class TestMetaReframe:
             scores=NormScore(
                 reliability=0.3, efficiency=5, justification=True, power=True,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.REFRAME
 
@@ -121,7 +121,7 @@ class TestMetaReframe:
         meta = Metadata(anomalies=("oscillation",))
         state = EpistemicState(
             ontology=None, evidence=(), beliefs=None,
-            revision_policy=lambda b, e, o: b, metadata=meta,
+            revision_policy=lambda b, _e, _o: b, metadata=meta,
         )
 
         controller = MetaController()
@@ -130,9 +130,9 @@ class TestMetaReframe:
             scores=NormScore(
                 reliability=0.9, efficiency=5, justification=True, power=False,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.REFRAME
 
@@ -151,9 +151,9 @@ class TestMetaSwitchStrategy:
             scores=NormScore(
                 reliability=0.9, efficiency=11, justification=True, power=True,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.SWITCH_STRATEGY
 
@@ -163,7 +163,7 @@ class TestMetaSwitchStrategy:
         meta = Metadata(anomalies=("oscillation",))
         state = EpistemicState(
             ontology=None, evidence=(), beliefs=None,
-            revision_policy=lambda b, e, o: b, metadata=meta,
+            revision_policy=lambda b, _e, _o: b, metadata=meta,
         )
 
         controller = MetaController()
@@ -172,9 +172,9 @@ class TestMetaSwitchStrategy:
             scores=NormScore(
                 reliability=0.9, efficiency=5, justification=True, power=True,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.SWITCH_STRATEGY
 
@@ -184,16 +184,16 @@ class TestMetaSwitchStrategy:
         meta = Metadata(anomalies=("oscillation",))
         state = EpistemicState(
             ontology=None, evidence=(), beliefs=None,
-            revision_policy=lambda b, e, o: b, metadata=meta,
+            revision_policy=lambda b, _e, _o: b, metadata=meta,
         )
 
         controller = MetaController()
         result = controller.monitor(
             trace=(state,),
             scores=None,
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.SWITCH_STRATEGY
 
@@ -210,9 +210,9 @@ class TestMetaThresholds:
             scores=NormScore(
                 reliability=0.85, efficiency=5, justification=True, power=True,
             ),
-            ontology=None,
-            strategy="bayesian",
-            decomposition=(),
+            _ontology=None,
+            _strategy="bayesian",
+            _decomposition=(),
         )
         assert result.decision == MetaDecision.REFRAME
 
