@@ -2,25 +2,28 @@
 
 ## Project
 
-A universal reasoning architecture. Formal spec in `docs/spec/`, Python reference implementation in `src/epistemic_pipeline/`. See `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md` for the full v0.1 design.
+A universal reasoning architecture. Formal spec in `docs/spec/`, Python reference implementation in `src/epistemic_pipeline/`. Design specification in `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md`.
 
 ## Writing Style
 
 All prose in this project — specs, docstrings, comments, READMEs — must be **graduate-level ideas in 8th-grade sentences**.
 
-Rules:
-- Short sentences. Under 20 words on average.
-- Define every technical term the first time it appears, in one plain sentence.
-- Follow abstract definitions immediately with a concrete example.
-- No sentence should require re-reading to parse. If it does, the sentence is the problem, not the idea.
-- Active voice. Say who does what.
-- No filler. No throat-clearing. Lead with the point.
+The test: if a smart 8th-grader can't follow the English, rewrite the English. The math and code stay at whatever level they need to be. Simple sentences, rigorous structures.
 
-This applies equally to the formal spec and the code. Rigor lives in the structure and the math, not in complex sentences.
+Rules:
+
+- Short sentences. Under 20 words on average.
+- Active voice. Say who does what.
+- Lead with the point. No filler, no throat-clearing.
+- Define every technical term the first time it appears, in one plain sentence.
+- Follow every abstract definition immediately with a concrete example.
+- No sentence should require re-reading. If it does, the sentence is the problem, not the idea.
+- The formalism carries the rigor. The prose carries the clarity. Never confuse complexity of language with complexity of thought.
 
 ## Architecture
 
 Two orthogonal views of one system:
+
 - **5-layer stack** (architecture): Tool/Environment, Cognitive Process, Pipeline, Norms, Meta-Epistemic
 - **`(O, E, B, R)` tuple** (state): Ontology, Evidence, Beliefs, Revision policy
 
@@ -32,12 +35,12 @@ Interleaved: spec section → code → tests, for each component. Never implemen
 
 ## Code Conventions
 
-- Python 3.12+
+- Python 3.14+
 - Pure functions for pipeline stages
 - Frozen dataclasses for state (immutability is a hard invariant)
 - Generic type parameters on `EpistemicState` so framework encodings can specialize O, E, B, R
 - No external dependencies for v0.1
-- `pytest` for tests, `mypy` for type checking
+- `pytest` for tests, `pyright` for type checking
 
 ## Key Invariants
 

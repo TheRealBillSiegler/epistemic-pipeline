@@ -1,0 +1,135 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "epistemic-pipeline"
+version = "0.1.0"
+description = "A universal reasoning architecture: formal (O,E,B,R) state model with pluggable revision policies."
+authors = [{ name = "Bill Siegler", email = "billsiegler@outlook.com" }]
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "pyright",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/epistemic_pipeline"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/epistemic_pipeline/py.typed" = "epistemic_pipeline/py.typed"
+
+[tool.coverage.run]
+source = ["epistemic_pipeline"]
+
+[tool.ruff]
+fix = true
+
+[tool.ruff.lint]
+# For more information visit https://docs.astral.sh/ruff/rules/.
+select = [
+    "F",    # Pyflakes: logical issues
+    "E",    # pycodestyle error: PEP 8 violations
+    "W",    # pycodestyle warning: style warnings
+    "I",    # isort: import order
+    "D",    # pydocstyle: docstring conventions
+    "N",    # pep8-naming: consistent naming
+    "ANN",  # flake8-annotations: type annotations
+    "S",    # flake8-bandit: security issues
+    "B",    # flake8-bugbear: potential bugs
+    "COM",  # flake8-commas: trailing commas
+    "C4",   # flake8-comprehensions: comprehension simplifications
+    "DTZ",  # flake8-datetimez: time-zone issues
+    "T10",  # flake8-debugger: debugger statements
+    "ISC",  # flake8-implicit-str-concat: implicit string concatenation
+    "ICN",  # flake8-import-conventions: import conventions
+    "PT",   # flake8-pytest-style: pytest best practices
+    "RET",  # flake8-return: consistent return statements
+    "SIM",  # flake8-simplify: code simplifications
+    "ARG",  # flake8-unused-arguments: unused arguments
+    "PTH",  # flake8-use-pathlib: pathlib over os.path
+    "PL",   # Pylint: additional linting
+    "TID",  # flake8-tidy-imports: import rules including relative imports
+    "UP",   # pyupgrade: syntax modernization
+    "FURB", # refurb: general code improvements
+    "RUF",  # Ruff-specific rules
+]
+
+ignore = [
+    # Ruff formatter will fix these rules.
+    "W191",   # Indentation using tabs
+    "D206",   # Docstrings indented with tabs
+    "COM812", # Missing trailing commas
+    "COM819", # Prohibited trailing commas
+    "ISC001", # Implicitly concatenated strings
+    "E501",   # Line length
+
+    # Docformatter will fix these rules.
+    "D212", # Docstring summary line not on first line
+    "W505", # Doc lines exceeding max length
+
+    # These rules are disabled because they are deprecated and will be removed in a future release.
+    "ANN003", # Deprecated type annotations for **kwargs
+
+    # Conflicts with docformatter since it will wrap a long line.
+    "D205", # Missing blank line after docstring summary
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"unittest".msg = "Prefer `pytest` to `unittest`."
+"unittest.mock".msg = "Prefer `pytest_mock` to `unittest.mock`."
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"] # Allow unused imports in __init__.py files
+"tests/**/*.py" = [
+    "ANN",     # Tests don't need type annotations.
+    "D",       # Tests don't need docstrings.
+    "PLR2004", # Magic values are acceptable in tests (status codes, test data).
+    "PLC0415", # Tests commonly import inside test functions.
+    "PTH123",  # Tests can use open() directly.
+    "S101",    # Tests use assert statements by design.
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = []
+
+[tool.pyright]
+typeCheckingMode = "strict"
+ignore = ["**/__init__.py"]
+include = ["src", "tests"]
+exclude = [".venv", "**/__pycache__", "**/node_modules", "**/.*"]
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = "warning"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+executionEnvironments = [
+    { root = "src"},
+    { root = "tests", extraPaths = ["."], reportUnknownLambdaType = "none", reportMissingParameterType = "none", reportUnknownParameterType = "none"}
+]

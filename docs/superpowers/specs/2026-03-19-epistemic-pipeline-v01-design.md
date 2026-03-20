@@ -2,21 +2,28 @@
 
 **Date:** 2026-03-19
 **Status:** Approved
-**Scope:** Formal specification + reference implementation of a universal reasoning architecture
+**Scope:** A formal spec and a working Python implementation of a universal reasoning architecture
 
 ---
 
 ## At a Glance
 
-This system reasons by tracking four things: what concepts exist (O), what has been observed (E), what it currently believes (B), and how it updates those beliefs (R). These four components flow through a 6-stage pipeline. Each stage is a pure function that takes the current state and returns a new one.
+The system tracks four things:
 
-v0.1 proves this works by encoding Bayesian inference — probability math for updating beliefs from evidence — as a special case. The test: a toy medical diagnosis where the system correctly identifies covid from symptoms.
+- **O** — what concepts exist (the vocabulary)
+- **E** — what has been observed (the evidence)
+- **B** — what it currently believes
+- **R** — how it updates beliefs when new evidence arrives
+
+These four flow through a 6-stage pipeline. Each stage takes the current state and returns a new one. No side effects.
+
+v0.1 proves this works by encoding Bayesian inference as a special case. Bayesian inference is the standard math for updating beliefs from evidence. The test: a toy medical diagnosis where the system correctly identifies covid from symptoms.
 
 No LLM. No external dependencies. Pure Python.
 
-**The core insight:** The system has two views that work together:
+**The core insight:** Two views of one system:
 
-- A 5-layer **stack** describes *what kinds of modules exist* (tools, cognitive processes, pipeline stages, evaluation norms, and a meta-layer that watches everything)
+- A 5-layer **stack** describes *what kinds of modules exist* — tools, cognitive processes, pipeline stages, evaluation norms, and a self-monitoring meta-layer
 - A 4-component **state tuple** `(O, E, B, R)` describes *what changes as reasoning progresses*
 
 The stack is the architecture. The tuple is the data flowing through it. Each layer reads and writes different parts of the tuple:
@@ -24,14 +31,20 @@ The stack is the architecture. The tuple is the data flowing through it. Each la
 | Layer | O (Ontology) | E (Evidence) | B (Beliefs) | R (Revision) |
 |-------|---|---|---|---|
 | **Tool/Environment** | provides schemas | **produces** | — | — |
-| **Cognitive Process** | **transforms** E→O | consumed | **transforms** O→B | — |
+| **Cognitive Process** | **transforms** E→O | reads | **transforms** O→B | — |
 | **Pipeline** | sequences | sequences | sequences | — |
 | **Norms** | evaluates | evaluates | evaluates | evaluates |
 | **Meta-Epistemic** | re-frames | requests more | forces revision | **modifies** |
 
-**Audience:** Academic researchers (the spec is rigorous enough to publish) and AI/ML practitioners (the code is a clean, installable Python package). The spec defines the interfaces. The code implements them. Neither imports the other.
+**Audience:** Two groups. Academic researchers — the spec is rigorous enough to publish. Engineers building AI systems — the code is a clean, installable Python package. The spec defines the interfaces. The code implements them. Neither imports the other.
 
-**Done when:** The medical diagnosis toy problem runs end-to-end, the posterior converges to the correct hypothesis, the state trace is replayable, all norms score correctly, and all tests and mypy pass.
+**Done when:**
+
+1. The medical diagnosis toy problem runs end-to-end
+2. The posterior (the system's final belief distribution) converges to the correct hypothesis
+3. The state trace is replayable
+4. All norms score correctly
+5. All tests and pyright pass
 
 ---
 
@@ -39,7 +52,9 @@ The stack is the architecture. The tuple is the data flowing through it. Each la
 
 ### The `(O, E, B, R)` State Tuple
 
-The system's complete state at any moment is four data structures bundled together. This bundle is **frozen** — you never modify it in place. Each pipeline stage takes one state and returns a new one. This means you get a full history of every reasoning step for free.
+The system's complete state at any moment is four data structures bundled together.
+
+This bundle is **frozen** — you never modify it in place. Each pipeline stage takes one state and returns a new one. You get a full history of every reasoning step for free.
 
 #### O — Ontology
 
@@ -52,31 +67,39 @@ For example, in a medical diagnosis: the diseases are flu, cold, and covid. The 
 
 #### E — Evidence
 
-What has been observed. An ordered list of observations, each tagged with where it came from and when.
+What has been observed. An ordered list of observations. Each one is tagged with where it came from and when.
 
 - You can only add to E, never remove. Evidence accumulates.
 
 #### B — Beliefs
 
-What the system currently thinks is true. A mapping from propositions to confidence values.
+What the system currently thinks is true. For each claim, a number saying how confident the system is.
 
 For example: `{flu: 0.3, cold: 0.1, covid: 0.6}` means "60% confident it's covid."
 
-Supports lookup, update, and normalization (making sure the values sum to 1.0 when they represent probabilities).
+You can look up any belief and update it. You can also normalize — make all values sum to 1.0, which probabilities must do.
 
 #### R — Revision Policy
 
-The rule for how to update beliefs when new evidence arrives. A pure function: give it the current beliefs (B), one new observation (e), and the vocabulary (O), and it returns updated beliefs (B').
+The rule for updating beliefs when new evidence arrives.
 
-Written formally: `R: (B, e, O) → B'`
+Give R three inputs: the current beliefs (B), one new observation (e), and the vocabulary (O). It returns updated beliefs (B').
 
-R is what makes the architecture general. **Swap R and you get a completely different reasoning system.** Bayes' rule gives you probabilistic reasoning. A search algorithm gives you planning. A Bellman update gives you decision-making. The rest of the architecture stays the same.
+In notation: `R: (B, e, O) → B'`
 
-Properties that R must have:
+R is what makes the architecture general. **Swap R and you get a completely different reasoning system.**
 
-- **Pure** — no side effects, same inputs always produce same outputs
+- Set R to Bayes' rule → probabilistic reasoning
+- Set R to a search algorithm → planning
+- Set R to a Bellman update (the math behind reinforcement learning) → decision-making
+
+Everything else stays the same.
+
+R must be:
+
+- **Pure** — no side effects. Same inputs always produce same outputs.
 - **Deterministic** (for v0.1)
-- **Type-compatible** — R must know how to work with the specific kind of B it receives
+- **Type-compatible** — R must work with the specific kind of B it receives
 
 #### In Python
 
@@ -87,7 +110,7 @@ class EpistemicState(Generic[O_t, E_t, B_t, R_t]):
     evidence: E_t
     beliefs: B_t
     revision_policy: R_t
-    metadata: MappingProxyType  # extra info (decomposition, strategy) — also immutable
+    metadata: MappingProxyType  # extra info (decomposition, strategy) — read-only dict
 ```
 
 ---
@@ -113,14 +136,14 @@ integrate(test(select(model(decompose(frame(input))))))
 
 - Every stage is a pure function (no side effects)
 - Any stage can be a no-op if the problem doesn't need it
-- Stages are defined as a Protocol/ABC, so each framework encoding can override them
+- Stages follow a Protocol (a Python interface contract). Any framework encoding — like the Bayesian one in Part II — can replace a stage with its own version.
 - The full list of intermediate states (the "trace") is kept for auditing and replay
 
 ---
 
 ### Epistemic Norms
 
-Four standards for judging whether the reasoning was good. Think of them as a report card for the pipeline run.
+Four standards for judging whether the reasoning was good. A report card for the pipeline run.
 
 | Norm | Question it answers | How v0.1 measures it |
 |------|-------------------|---------------------|
@@ -129,7 +152,7 @@ Four standards for judging whether the reasoning was good. Think of them as a re
 | **Efficiency** | How much work did it take? | Count of pipeline steps or R applications |
 | **Justification** | Can we prove the final beliefs came from the evidence? | Replay: re-run all evidence through R from the starting beliefs. If you get the same result, it's justified. |
 
-Justification is special. Because R is pure and the full trace is saved, justification isn't a judgment call — it's a **mathematical check**. You can always reconstruct exactly how the system reached its conclusions.
+Justification is special here. Because R is pure and the trace is saved, justification is a **mathematical check**, not a judgment call.
 
 ```python
 @dataclass
@@ -146,9 +169,9 @@ def score_pipeline_run(trace: list[EpistemicState], ground_truth: Any) -> NormSc
 
 ### Meta-Epistemic Layer
 
-The system's self-monitor. It watches the pipeline run, looks at the norm scores, and decides what to do next.
+The system's self-monitor. It watches the pipeline, checks the norm scores, and decides what to do next.
 
-**v0.1: this is a stub.** The interface exists and gets called, but it always says "looks good, accept the result." The point is to prove the architecture has all five layers wired up, even before the meta-layer has real logic.
+**v0.1: this is a stub.** The interface exists. The harness calls it. It always returns ACCEPT. The point: prove all five layers are wired up before adding real logic.
 
 ```python
 class MetaDecision:
@@ -159,7 +182,12 @@ class MetaEpistemicController:
     def monitor(self, trace, scores, ontology, strategy, decomposition) -> MetaDecision: ...
 ```
 
-**What it will eventually do** (spec only, not built yet): re-frame the problem when reliability is low, switch strategies when efficiency is poor, escalate when evidence contradicts itself, flag when the vocabulary is missing important concepts.
+**What it will eventually do** (v0.2+):
+
+- Re-frame the problem when reliability is low
+- Switch strategies when efficiency is poor
+- Escalate when evidence contradicts itself
+- Flag when the vocabulary is missing important concepts
 
 ---
 
@@ -167,15 +195,15 @@ class MetaEpistemicController:
 
 ### Bayesian Encoding
 
-To prove the architecture actually works, we encode Bayesian inference — the standard math for updating beliefs from evidence — as a special case of `(O, E, B, R)`.
+To prove the architecture works, we encode Bayesian inference as a special case of `(O, E, B, R)`.
 
-"Expressiveness proof" means: we show that a well-known reasoning framework fits naturally into our architecture as just one configuration of the same machinery.
+What is an expressiveness proof? Take a well-known reasoning framework. Show it fits into your architecture as one configuration. If it fits, your architecture is at least as powerful.
 
 #### State Specialization
 
 | Component | What it becomes for Bayesian inference |
 |-----------|---------------------------------------|
-| O | `BayesOntology`: a list of hypotheses, a list of observable symptoms, and a table of how likely each symptom is given each hypothesis |
+| O | `BayesOntology`: hypotheses (possible diseases), observables (symptoms), and a likelihood table — how probable each symptom is for each disease |
 | E | `BayesEvidence`: a list of observations like "fever = true" |
 | B | `BayesBelief`: a probability distribution — e.g., `{flu: 0.4, cold: 0.4, covid: 0.2}` — must sum to 1.0 |
 | R | `BayesRevision`: Bayes' rule — the standard formula for updating probabilities from evidence |
@@ -186,7 +214,7 @@ To prove the architecture actually works, we encode Bayesian inference — the s
 - **Starting beliefs (priors):** `{flu: 0.4, cold: 0.4, covid: 0.2}`
 - **Evidence observed:** `[fever=true, cough=true, loss_of_smell=true]`
 - **Correct answer:** covid
-- **What should happen:** As each symptom is observed, beliefs update. Loss of smell is rare for flu and cold but common for covid, so the posterior should shift strongly toward covid.
+- **What should happen:** Each symptom updates the beliefs. Loss of smell is rare for flu and cold but common for covid. After that observation, the posterior (updated belief distribution) should strongly favor covid.
 
 #### How the Pipeline Stages Map
 
@@ -195,7 +223,7 @@ To prove the architecture actually works, we encode Bayesian inference — the s
 3. **Model:** Set B to the prior probabilities, set R to Bayes' rule
 4. **Strategy:** Process symptoms in order, stop when confidence exceeds 0.95 or all evidence is used
 5. **Experiment:** Apply Bayes' rule for each symptom, saving the state after each update
-6. **Integrate:** Report the final probability distribution, the most likely diagnosis, confidence, and the full trace
+6. **Integrate:** Report the final distribution, the most likely diagnosis, confidence, and the full trace
 
 #### What This Proves
 
@@ -242,13 +270,13 @@ epistemic-pipeline/
 └── .gitignore
 ```
 
-**Tooling:** Python 3.12+, setuptools, pytest, mypy. No external dependencies. Optional: ruff, pre-commit.
+**Tooling:** Python 3.14+, hatchling, pytest, pyright. No external dependencies. Optional: ruff, pre-commit.
 
-**Separation:** `docs/spec/` and `src/epistemic_pipeline/` are independently coherent. The spec defines interfaces. The code implements them. Neither imports the other.
+**Separation:** The spec and the code stand alone. The spec defines what the code must do. The code does it. Neither imports the other.
 
 ### Build Order
 
-Each component is built in three steps: write the spec, implement the code, write the tests. Then move to the next component.
+Each component: write the spec, implement the code, write the tests. Then move on.
 
 | Step | Spec | Code | Tests |
 |------|------|------|-------|
@@ -268,25 +296,25 @@ v0.1 is complete when:
 2. The 6 pipeline stages run deterministically as pure functions
 3. Bayesian inference is encoded as a special case
 4. The medical diagnosis toy problem runs end-to-end
-5. The posterior converges to the correct hypothesis (covid)
+5. The posterior converges to the correct hypothesis — covid
 6. The state trace is preserved and replayable
 7. Norm scoring works: reliability (binary), efficiency (step count), justification (replay)
 8. The meta-epistemic controller stub is called and returns ACCEPT
 9. All tests pass
-10. `mypy` passes with no errors
+10. `pyright` passes with no errors
 
 ---
 
 ## Appendix — v0.2+ Roadmap
 
-Collected here to keep the v0.1 spec focused.
+Everything below is out of scope for v0.1. Collected here so the main spec stays focused.
 
-**Framework encodings:** Classical AI Planning (STRIPS/PDDL) → Newell & Simon State-Space Search → Decision Theory / MDPs
+**More framework encodings:** Classical AI Planning (STRIPS/PDDL), then Newell & Simon State-Space Search, then Decision Theory / MDPs. Each proves the architecture can express another reasoning paradigm.
 
-**Norms:** Calibration curves, KL divergence, posterior entropy for reliability. Time/memory/token cost for efficiency. Cross-run aggregation. Norm weighting and trade-offs.
+**Richer norms:** Calibration curves and KL divergence for reliability. Time and memory cost for efficiency. Aggregating scores across multiple runs. Weighting trade-offs between norms.
 
-**Meta-epistemic triggers:** Reliability < 0.5 → REFRAME. Efficiency > 2x expected → SWITCH_STRATEGY. Posterior oscillation → ESCALATE. Ontology inadequacy detection.
+**Meta-epistemic triggers:** Reliability drops below 0.5 → re-frame. Efficiency exceeds 2x expected → switch strategy. Beliefs oscillate → escalate. Vocabulary is missing key concepts → flag.
 
-**Evidence:** Confidence/reliability metadata per observation. Evidence typing (observation, report, measurement).
+**Richer evidence:** Tag each observation with a confidence score and a type (direct observation, second-hand report, measurement).
 
-**Beliefs:** Consistency checks.
+**Belief checks:** Verify that beliefs stay internally consistent.
