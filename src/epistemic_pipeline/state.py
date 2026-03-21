@@ -34,6 +34,7 @@ class Observation:
     timestamp: when the observation happened (seconds since epoch or ordinal).
     confidence: how reliable this observation is, from 0.0 to 1.0. Default is 1.0 (fully trusted).
     etype: how the observation was obtained. Default is EvidenceType.OBSERVATION.
+    modality: the input channel that produced this observation (e.g. "tool", "llm"). None means unspecified.
     """
 
     variable: str
@@ -42,6 +43,7 @@ class Observation:
     timestamp: float
     confidence: float = 1.0
     etype: EvidenceType = EvidenceType.OBSERVATION
+    modality: str | None = None
 
 
 @dataclass(frozen=True)
