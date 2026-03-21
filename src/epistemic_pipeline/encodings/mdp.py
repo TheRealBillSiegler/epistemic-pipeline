@@ -88,6 +88,20 @@ class MDPOntology:
         terminal_states: frozenset[str] = frozenset(),
         epsilon: float = 1e-6,
     ) -> None:
+        """Convert transitions and rewards to immutable mappings.
+
+        Accepts dict or MappingProxyType for transitions and rewards.
+        Expands rewards in {state: r} form across all actions.
+
+        Args:
+            states: all state names.
+            actions: action names in a fixed order.
+            transitions: T(s, a, s') non-zero probabilities. Dict or frozen.
+            rewards: R(s, a) values. Accepts {(s, a): r} or {s: r} dicts.
+            discount: gamma in [0, 1).
+            terminal_states: states where the episode ends.
+            epsilon: convergence threshold.
+        """
         object.__setattr__(self, "states", states)
         object.__setattr__(self, "actions", actions)
         if isinstance(transitions, MappingProxyType):
@@ -160,6 +174,16 @@ class MDPBeliefs:
         iteration: int = 0,
         converged: bool = False,
     ) -> None:
+        """Convert value_function and policy to immutable mappings.
+
+        Accepts dict or MappingProxyType for both fields.
+
+        Args:
+            value_function: V(s) estimates. Dict or frozen mapping.
+            policy: pi(s) best actions. Dict or frozen mapping.
+            iteration: number of Bellman sweeps completed.
+            converged: True when max delta dropped below epsilon.
+        """
         if isinstance(value_function, MappingProxyType):
             object.__setattr__(self, "value_function", value_function)
         else:
@@ -207,6 +231,21 @@ class MDPProblem:
         epsilon: float = 1e-6,
         max_iterations: int = 1000,
     ) -> None:
+        """Convert transitions and rewards to immutable mappings.
+
+        Accepts dict or MappingProxyType for transitions and rewards.
+        Expands rewards in {state: r} form across all actions.
+
+        Args:
+            states: all state names.
+            actions: action names in a fixed order.
+            transitions: T(s, a, s') non-zero probabilities. Dict or frozen.
+            rewards: R(s, a) values. Accepts {(s, a): r} or {s: r} dicts.
+            discount: gamma in [0, 1).
+            terminal_states: absorbing states.
+            epsilon: convergence threshold.
+            max_iterations: cap on Bellman sweeps before giving up.
+        """
         object.__setattr__(self, "states", states)
         object.__setattr__(self, "actions", actions)
         if isinstance(transitions, MappingProxyType):
