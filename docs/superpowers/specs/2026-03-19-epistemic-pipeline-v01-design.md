@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-19
 **Status:** Approved
-**Scope:** A formal spec and a working Python implementation of a universal reasoning architecture
+**Scope:** A formal spec and a working Python implementation of a general-purpose reasoning architecture
 
 ---
 
@@ -197,7 +197,7 @@ class MetaEpistemicController:
 
 To prove the architecture works, we encode Bayesian inference as a special case of `(O, E, B, R)`.
 
-What is an expressiveness proof? Take a well-known reasoning framework. Show it fits into your architecture as one configuration. If it fits, your architecture is at least as powerful.
+What is an expressiveness demonstration? Take a well-known reasoning framework. Show it fits into your architecture as one configuration. Show the encoding preserves the framework's essential properties — not just its inputs and outputs. If it does, the architecture is at least as expressive as that framework for the properties that matter.
 
 #### State Specialization
 

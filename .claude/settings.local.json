@@ -3,7 +3,12 @@
     "allow": [
       "WebSearch",
       "Skill(commit-commands:commit)",
-      "Skill(commit-commands:commit:*)"
+      "Skill(commit-commands:commit:*)",
+      "Bash(uv run:*)",
+      "Bash(uv python:*)",
+      "Bash(npx markdownlint-cli:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

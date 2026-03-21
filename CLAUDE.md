@@ -2,7 +2,7 @@
 
 ## Project
 
-A universal reasoning architecture. Formal spec in `docs/spec/`, Python reference implementation in `src/epistemic_pipeline/`. Design specification in `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md`.
+A general-purpose reasoning architecture. Formal spec in `docs/spec/`, Python reference implementation in `src/epistemic_pipeline/`. Design specification in `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md`.
 
 ## Writing Style
 
@@ -36,6 +36,7 @@ Interleaved: spec section → code → tests, for each component. Never implemen
 ## Code Conventions
 
 - Python 3.14+
+- Use `uv` for all Python execution (never bare `python` or `pip`)
 - Pure functions for pipeline stages
 - Frozen dataclasses for state (immutability is a hard invariant)
 - Generic type parameters on `EpistemicState` so framework encodings can specialize O, E, B, R
