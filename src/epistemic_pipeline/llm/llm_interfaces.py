@@ -1,6 +1,6 @@
 """LLM integration interfaces for the epistemic pipeline.
 
-An LLM is a model the pipeline can query for reasoning support — proposing
+An LLM is a model the pipeline can query for reasoning support. Proposing
 an ontology, decomposing a problem, or generating an explanation. LLM
 responses are text paired with a self-assessed confidence score.
 This module defines the protocol, an adapter to convert responses into
