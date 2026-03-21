@@ -1,8 +1,8 @@
 """Normative evaluation: reliability, efficiency, justification, power.
 
-Scores a pipeline run on four dimensions. v0.2 adds calibration
-(log scoring rule), heuristic cost, strategy switches, intermediate
-consistency checks, and ontology adequacy (power).
+Scores a pipeline run on four dimensions.
+v0.2 adds calibration (log scoring rule), heuristic cost, strategy switches,
+intermediate consistency checks, and ontology adequacy (power).
 """
 
 import math
@@ -39,9 +39,9 @@ _JUSTIFICATION_ATOL = 1e-9
 def _beliefs_approx_equal(a: object, b: object) -> bool:
     """Compare two belief objects with float tolerance.
 
-    Walks dict and dataclass fields looking for float values. Two beliefs
-    are approximately equal when all non-float fields match exactly and
-    all float values are within _JUSTIFICATION_ATOL of each other.
+    Walks dict and dataclass fields looking for float values.
+    Two beliefs are approximately equal when all non-float fields match exactly
+    and all float values are within _JUSTIFICATION_ATOL of each other.
     Falls back to == for types without dict-like or dataclass structure.
     """
     if type(a) is not type(b):

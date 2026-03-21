@@ -4,12 +4,12 @@ Expressiveness proof #3: sequential decision-making as epistemic state.
 An MDP (Markov Decision Process) defines states, actions, stochastic
 transitions, and rewards. The agent's goal is to find a policy that
 maximizes expected discounted reward. Value iteration is the revision
-policy: each Bellman sweep updates the value estimate for every state.
+policy. Each Bellman sweep updates the value estimate for every state.
 
 Ontology O: state space, action set, transition model, reward function.
 Evidence E: one synthetic observation per Bellman sweep.
 Beliefs B: current value function and derived policy.
-Revision R: one full Bellman sweep — R(B, e, O) -> B'.
+Revision R: one full Bellman sweep. R(B, e, O) -> B'.
 """
 
 from dataclasses import dataclass, field, replace
@@ -58,12 +58,12 @@ def _freeze_dict[K, V](d: dict[K, V]) -> MappingProxyType[K, V]:
 class MDPOntology:
     """MDP ontology: the full problem structure.
 
-    states: all state names (e.g. frozenset({"s0", "s1"})).
+    states: all state names. Example: frozenset({"s0", "s1"}).
     actions: action names in a fixed order.
     transitions: T(s, a, s') probabilities. Key is (s, a, s') tuple.
       Only non-zero entries need to be present. Immutable after construction.
     rewards: R(s, a) reward values. Always stored as (state, action) keys.
-      Callers may pass {s: r} dicts — these are expanded across all actions.
+      Callers may pass {s: r} dicts. These are expanded across all actions.
       Immutable after construction.
     discount: gamma in [0, 1). Scales future rewards.
     terminal_states: states where the episode ends. No outgoing value.
