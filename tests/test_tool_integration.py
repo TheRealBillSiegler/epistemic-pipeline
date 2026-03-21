@@ -4,6 +4,8 @@ Covers ToolResult, MockTool, ToolEvidenceAdapter, and the end-to-end
 path from tool invocation to Observation.
 """
 
+import dataclasses
+
 import pytest
 
 from epistemic_pipeline.state import EvidenceType
@@ -20,7 +22,7 @@ class TestToolResult:
     def test_frozen(self) -> None:
         """Assigning to a field must raise FrozenInstanceError."""
         result = ToolResult(name="calc", output={"value": 42}, success=True)
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             result.name = "other"  # type: ignore[misc]
 
     def test_fields_accessible(self) -> None:

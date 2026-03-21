@@ -4,6 +4,8 @@ Covers LLMResponse, MockLLM, LLMEvidenceAdapter, and the end-to-end
 path from LLM invocation to Observation.
 """
 
+import dataclasses
+
 import pytest
 
 from epistemic_pipeline.llm import (
@@ -20,7 +22,7 @@ class TestLLMResponse:
     def test_frozen(self) -> None:
         """Assigning to a field must raise FrozenInstanceError."""
         response = LLMResponse(content="some text", confidence=0.9)
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             response.content = "other"  # type: ignore[misc]
 
     def test_fields_accessible(self) -> None:
