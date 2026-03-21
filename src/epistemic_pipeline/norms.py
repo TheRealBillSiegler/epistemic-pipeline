@@ -8,6 +8,7 @@ consistency checks, and ontology adequacy (power).
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from epistemic_pipeline.state import EpistemicState, Observation
 
@@ -25,11 +26,53 @@ class NormScore:
     reliability: float
     efficiency: int
     justification: bool
-    power: str | bool | None = None
+    power: bool | None = None
     calibration: float = 0.0
     efficiency_heuristic_cost: int = 0
     efficiency_strategy_switches: int = 0
     justification_intermediate_consistent: bool = True
+
+
+_JUSTIFICATION_ATOL = 1e-9
+
+
+def _beliefs_approx_equal(a: object, b: object) -> bool:
+    """Compare two belief objects with float tolerance.
+
+    Walks dict and dataclass fields looking for float values. Two beliefs
+    are approximately equal when all non-float fields match exactly and
+    all float values are within _JUSTIFICATION_ATOL of each other.
+    Falls back to == for types without dict-like or dataclass structure.
+    """
+    if type(a) is not type(b):
+        return False
+    # Handle dict comparison (e.g. BayesBeliefs.probabilities).
+    if isinstance(a, dict) and isinstance(b, dict):
+        if a.keys() != b.keys():
+            return False
+        for k in a:
+            av, bv = a[k], b[k]
+            if isinstance(av, float) and isinstance(bv, float):
+                if abs(av - bv) > _JUSTIFICATION_ATOL:
+                    return False
+            elif av != bv:
+                return False
+        return True
+    # Handle frozen dataclasses by comparing fields.
+    if hasattr(a, "__dataclass_fields__"):
+        for field_name in a.__dataclass_fields__:
+            fa = getattr(a, field_name)
+            fb = getattr(b, field_name)
+            if not _beliefs_approx_equal(fa, fb):
+                return False
+        return True
+    # Handle MappingProxyType by comparing the underlying data.
+    if isinstance(a, MappingProxyType) and isinstance(b, MappingProxyType):
+        return _beliefs_approx_equal(dict(a), dict(b))
+    # Scalar floats.
+    if isinstance(a, float) and isinstance(b, float):
+        return abs(a - b) <= _JUSTIFICATION_ATOL
+    return a == b
 
 
 def _replay_beliefs[O, B](
@@ -93,7 +136,7 @@ def score_pipeline_run[O, B](  # noqa: PLR0913
         final.revision_policy,
         final.ontology,
     )
-    justification = replayed == final.beliefs
+    justification = _beliefs_approx_equal(replayed, final.beliefs)
 
     # Calibration: log(B_final(h*))
     calibration = 0.0
@@ -110,7 +153,7 @@ def score_pipeline_run[O, B](  # noqa: PLR0913
                 break
 
     # Power: ontology adequacy
-    power: str | bool | None = None
+    power: bool | None = None
     if ontology_adequate is not None:
         power = ontology_adequate(final.ontology, final.evidence)
 

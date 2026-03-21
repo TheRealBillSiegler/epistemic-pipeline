@@ -2,7 +2,7 @@
 
 ## Project
 
-A general-purpose reasoning architecture. Formal spec in `docs/spec/`, Python reference implementation in `src/epistemic_pipeline/`. Design specification in `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md`.
+A general-purpose reasoning architecture. Formal specs in `docs/superpowers/specs/`, Python reference implementation in `src/epistemic_pipeline/`. v0.1 design spec: `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md`.
 
 ## Writing Style
 
@@ -41,7 +41,8 @@ Interleaved: spec section → code → tests, for each component. Never implemen
 - Frozen dataclasses for state (immutability is a hard invariant)
 - Generic type parameters on `EpistemicState` so framework encodings can specialize O, E, B, R
 - No external dependencies for v0.1
-- `pytest` for tests, `pyright` for type checking
+- `pytest` for tests, `pyright` for type checking, `ruff` for linting
+- Run tools via `uv`: `uv run pytest`, `uv run pyright`, `uv run ruff check`
 
 ## Key Invariants
 

@@ -21,9 +21,9 @@
 | `src/epistemic_pipeline/state.py` | `EpistemicState`, base protocols for O/E/B/R |
 | `src/epistemic_pipeline/pipeline.py` | `Stage` protocol, `run_pipeline()`, `PipelineResult` |
 | `src/epistemic_pipeline/norms.py` | `NormScore`, `score_pipeline_run()` |
-| `src/epistemic_pipeline/meta.py` | `MetaDecision`, `MetaEpistemicController` stub |
+| `src/epistemic_pipeline/meta.py` | `MetaDecision`, `MetaController` stub |
 | `src/epistemic_pipeline/encodings/__init__.py` | Encodings sub-package |
-| `src/epistemic_pipeline/encodings/bayes.py` | `BayesVocabulary`, `BayesEvidence`, `BayesCredences`, `BayesRevision`, `bayes_stages()` |
+| `src/epistemic_pipeline/encodings/bayes.py` | `BayesOntology`, `BayesEvidence`, `BayesBeliefs`, `BayesRevision`, `bayes_stages()` |
 | `tests/__init__.py` | Test package marker |
 | `tests/test_state.py` | Immutability, generics, invariants |
 | `tests/test_pipeline.py` | Stage composition, trace preservation, purity |
@@ -177,8 +177,8 @@ class EpistemicState[O_t, E_t, B_t, R_t]:
     states (the trace) is preserved for auditing and replay.
 
     Type parameters let framework encodings specialize all four
-    components. For Bayesian inference: O_t=BayesVocabulary,
-    E_t=BayesEvidence, B_t=BayesCredences, R_t=BayesRevision.
+    components. For Bayesian inference: O_t=BayesOntology,
+    E_t=BayesEvidence, B_t=BayesBeliefs, R_t=BayesRevision.
     """
 
     ontology: O_t
@@ -904,7 +904,7 @@ class MetaDecision:
     details: dict[str, Any] = field(default_factory=dict)
 
 
-class MetaEpistemicController:
+class MetaController:
     """The meta-epistemic controller.
 
     v0.1: always returns ACCEPT. The interface is the deliverable.
@@ -937,7 +937,7 @@ from epistemic_pipeline.norms import NormScore
 from epistemic_pipeline.meta import (
     MetaDecision,
     MetaDecisionType,
-    MetaEpistemicController,
+    MetaController,
 )
 
 
@@ -958,19 +958,19 @@ def dummy_scores():
     return NormScore(reliability=1.0, efficiency=1, justification=True, power=None)
 
 
-class TestMetaEpistemicController:
+class TestMetaController:
     def test_stub_returns_accept(self, dummy_trace, dummy_scores):
-        controller = MetaEpistemicController()
+        controller = MetaController()
         decision = controller.monitor(dummy_trace, dummy_scores)
         assert decision.decision == MetaDecisionType.ACCEPT
 
     def test_stub_returns_empty_details(self, dummy_trace, dummy_scores):
-        controller = MetaEpistemicController()
+        controller = MetaController()
         decision = controller.monitor(dummy_trace, dummy_scores)
         assert decision.details == {}
 
     def test_returns_meta_decision_type(self, dummy_trace, dummy_scores):
-        controller = MetaEpistemicController()
+        controller = MetaController()
         decision = controller.monitor(dummy_trace, dummy_scores)
         assert isinstance(decision, MetaDecision)
 
@@ -1016,9 +1016,9 @@ The first expressiveness proof. Encode Bayesian inference as a special case of `
 - Create: `tests/test_bayes.py`
 
 **Key design decisions:**
-- `BayesVocabulary`: frozen dataclass with hypotheses, observables, and a likelihood table
+- `BayesOntology`: frozen dataclass with hypotheses, observables, and a likelihood table
 - `BayesEvidence`: frozen dataclass wrapping a tuple of `(observable, value)` pairs, with `append()` returning a new instance
-- `BayesCredences`: frozen dataclass wrapping a dict-like mapping from hypothesis to probability, must sum to ~1.0
+- `BayesBeliefs`: frozen dataclass wrapping a dict-like mapping from hypothesis to probability, must sum to ~1.0
 - `BayesRevision`: callable implementing Bayes' rule — `P(H|e) = P(e|H) * P(H) / P(e)`
 - `bayes_stages()`: returns the 6 pipeline stages pre-configured for Bayesian inference
 - Likelihoods keyed as `(hypothesis, observable, value)` → `float`
@@ -1029,9 +1029,9 @@ The first expressiveness proof. Encode Bayesian inference as a special case of `
 """Bayesian inference encoding for the epistemic pipeline.
 
 Encodes Bayesian inference as a special case of (O, E, B, R):
-- O = BayesVocabulary: hypotheses, observables, likelihood table
+- O = BayesOntology: hypotheses, observables, likelihood table
 - E = BayesEvidence: observed (observable, value) pairs
-- B = BayesCredences: probability distribution over hypotheses
+- B = BayesBeliefs: probability distribution over hypotheses
 - R = BayesRevision: Bayes' rule
 
 The toy problem: diagnose a patient from symptoms.
@@ -1051,7 +1051,7 @@ from epistemic_pipeline.state import EpistemicState
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class BayesVocabulary:
+class BayesOntology:
     """The vocabulary for a Bayesian inference problem.
 
     Attributes:
@@ -1102,7 +1102,7 @@ class BayesEvidence:
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class BayesCredences:
+class BayesBeliefs:
     """A probability distribution over hypotheses.
 
     Each hypothesis maps to a float between 0 and 1.
@@ -1118,7 +1118,7 @@ class BayesCredences:
         return iter(self.distribution)
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, BayesCredences):
+        if isinstance(other, BayesBeliefs):
             return self.distribution == other.distribution
         return NotImplemented
 
@@ -1131,14 +1131,14 @@ class BayesCredences:
         return self.distribution.items()
 
 
-def make_credences(mapping: dict[str, float]) -> BayesCredences:
-    """Create BayesCredences from a plain dict.
+def make_credences(mapping: dict[str, float]) -> BayesBeliefs:
+    """Create BayesBeliefs from a plain dict.
 
     Args:
         mapping: Hypothesis -> probability. Must sum to ~1.0.
 
     Returns:
-        Frozen BayesCredences.
+        Frozen BayesBeliefs.
 
     Raises:
         ValueError: If probabilities don't sum to ~1.0.
@@ -1147,7 +1147,7 @@ def make_credences(mapping: dict[str, float]) -> BayesCredences:
     if abs(total - 1.0) > 1e-9:
         msg = f"Probabilities must sum to 1.0, got {total}"
         raise ValueError(msg)
-    return BayesCredences(distribution=MappingProxyType(mapping))
+    return BayesBeliefs(distribution=MappingProxyType(mapping))
 
 
 # ---------------------------------------------------------------------------
@@ -1167,10 +1167,10 @@ class BayesRevision:
 
     def __call__(
         self,
-        beliefs: BayesCredences,
+        beliefs: BayesBeliefs,
         evidence_item: tuple[str, bool],
-        ontology: BayesVocabulary,
-    ) -> BayesCredences:
+        ontology: BayesOntology,
+    ) -> BayesBeliefs:
         """Apply Bayes' rule for one observation.
 
         Args:
@@ -1179,7 +1179,7 @@ class BayesRevision:
             ontology: Vocabulary with likelihood table.
 
         Returns:
-            Updated BayesCredences (posterior distribution).
+            Updated BayesBeliefs (posterior distribution).
         """
         observable, value = evidence_item
 
@@ -1197,7 +1197,7 @@ class BayesRevision:
             raise ValueError(msg)
 
         posterior = {h: p / total for h, p in unnormalized.items()}
-        return BayesCredences(distribution=MappingProxyType(posterior))
+        return BayesBeliefs(distribution=MappingProxyType(posterior))
 
 
 # ---------------------------------------------------------------------------
@@ -1217,8 +1217,8 @@ class BayesFrameStage:
 
     def __call__(
         self,
-        state: EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision],
-    ) -> EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision]:
+        state: EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision],
+    ) -> EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision]:
         return state
 
 
@@ -1234,8 +1234,8 @@ class BayesDecomposeStage:
 
     def __call__(
         self,
-        state: EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision],
-    ) -> EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision]:
+        state: EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision],
+    ) -> EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision]:
         return state
 
 
@@ -1253,8 +1253,8 @@ class BayesModelStage:
 
     def __call__(
         self,
-        state: EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision],
-    ) -> EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision]:
+        state: EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision],
+    ) -> EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision]:
         # Validate: every hypothesis in O has a belief in B
         for h in state.ontology.hypotheses:
             if h not in state.beliefs.distribution:
@@ -1284,8 +1284,8 @@ class BayesStrategyStage:
 
     def __call__(
         self,
-        state: EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision],
-    ) -> EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision]:
+        state: EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision],
+    ) -> EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision]:
         new_metadata = MappingProxyType({
             **state.metadata,
             "strategy": "sequential",
@@ -1309,8 +1309,8 @@ class BayesExperimentStage:
 
     def __call__(
         self,
-        state: EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision],
-    ) -> EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision]:
+        state: EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision],
+    ) -> EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision]:
         evidence_sequence = state.metadata["evidence_sequence"]
         threshold = state.metadata["confidence_threshold"]
         revision = state.revision_policy
@@ -1349,8 +1349,8 @@ class BayesIntegrateStage:
 
     def __call__(
         self,
-        state: EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision],
-    ) -> EpistemicState[BayesVocabulary, BayesEvidence, BayesCredences, BayesRevision]:
+        state: EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision],
+    ) -> EpistemicState[BayesOntology, BayesEvidence, BayesBeliefs, BayesRevision]:
         top = state.beliefs.top()
         confidence = state.beliefs[top]
         new_metadata = MappingProxyType({
@@ -1401,11 +1401,11 @@ from types import MappingProxyType
 from epistemic_pipeline.state import EpistemicState
 from epistemic_pipeline.pipeline import run_pipeline
 from epistemic_pipeline.norms import score_pipeline_run
-from epistemic_pipeline.meta import MetaEpistemicController
+from epistemic_pipeline.meta import MetaController
 from epistemic_pipeline.encodings.bayes import (
-    BayesVocabulary,
+    BayesOntology,
     BayesEvidence,
-    BayesCredences,
+    BayesBeliefs,
     BayesRevision,
     bayes_stages,
     make_credences,
@@ -1437,7 +1437,7 @@ LIKELIHOODS = MappingProxyType({
 
 @pytest.fixture
 def vocab():
-    return BayesVocabulary(
+    return BayesOntology(
         hypotheses=("flu", "cold", "covid"),
         observables=("fever", "cough", "loss_of_smell"),
         likelihoods=LIKELIHOODS,
@@ -1454,9 +1454,9 @@ def evidence_sequence():
     return (("fever", True), ("cough", True), ("loss_of_smell", True))
 
 
-# --- BayesVocabulary ---
+# --- BayesOntology ---
 
-class TestBayesVocabulary:
+class TestBayesOntology:
     def test_frozen(self, vocab):
         with pytest.raises(AttributeError):
             vocab.hypotheses = ("changed",)
@@ -1486,9 +1486,9 @@ class TestBayesEvidence:
             e.observations = (("fever", True),)
 
 
-# --- BayesCredences ---
+# --- BayesBeliefs ---
 
-class TestBayesCredences:
+class TestBayesBeliefs:
     def test_make_credences_valid(self):
         c = make_credences({"a": 0.6, "b": 0.4})
         assert c["a"] == 0.6
@@ -1589,7 +1589,7 @@ class TestBayesEndToEnd:
         result = run_pipeline(initial, stages)
         scores = score_pipeline_run(result.trace, ground_truth="covid")
 
-        controller = MetaEpistemicController()
+        controller = MetaController()
         decision = controller.monitor(result.trace, scores)
         from epistemic_pipeline.meta import MetaDecisionType
         assert decision.decision == MetaDecisionType.ACCEPT
@@ -1636,9 +1636,9 @@ from types import MappingProxyType
 from epistemic_pipeline.state import EpistemicState
 from epistemic_pipeline.pipeline import run_pipeline
 from epistemic_pipeline.encodings.bayes import (
-    BayesVocabulary,
+    BayesOntology,
     BayesEvidence,
-    BayesCredences,
+    BayesBeliefs,
     BayesRevision,
     bayes_stages,
     make_credences,
@@ -1668,7 +1668,7 @@ LIKELIHOODS = MappingProxyType({
 
 def _run_medical_diagnosis():
     """Run the full medical diagnosis pipeline and return the result."""
-    vocab = BayesVocabulary(
+    vocab = BayesOntology(
         hypotheses=("flu", "cold", "covid"),
         observables=("fever", "cough", "loss_of_smell"),
         likelihoods=LIKELIHOODS,
@@ -1758,13 +1758,13 @@ Public API:
     run_pipeline — compose stages and collect the trace
     PipelineResult — final state + full trace
     score_pipeline_run, NormScore — evaluate reasoning quality
-    MetaEpistemicController, MetaDecision, MetaDecisionType — self-monitor
+    MetaController, MetaDecision, MetaDecisionType — self-monitor
 """
 
 from epistemic_pipeline.meta import (
     MetaDecision,
     MetaDecisionType,
-    MetaEpistemicController,
+    MetaController,
 )
 from epistemic_pipeline.norms import NormScore, score_pipeline_run
 from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
@@ -1774,7 +1774,7 @@ __all__ = [
     "EpistemicState",
     "MetaDecision",
     "MetaDecisionType",
-    "MetaEpistemicController",
+    "MetaController",
     "NormScore",
     "PipelineResult",
     "run_pipeline",
@@ -1796,21 +1796,21 @@ from types import MappingProxyType
 
 from epistemic_pipeline import (
     EpistemicState,
-    MetaEpistemicController,
+    MetaController,
     run_pipeline,
     score_pipeline_run,
 )
 from epistemic_pipeline.encodings.bayes import (
     BayesEvidence,
     BayesRevision,
-    BayesVocabulary,
+    BayesOntology,
     bayes_stages,
     make_credences,
 )
 
 # --- Define the problem ---
 
-vocab = BayesVocabulary(
+vocab = BayesOntology(
     hypotheses=("flu", "cold", "covid"),
     observables=("fever", "cough", "loss_of_smell"),
     likelihoods=MappingProxyType({
@@ -1891,7 +1891,7 @@ print(f"Justification: {scores.justification}")
 
 # --- Meta-epistemic layer ---
 
-controller = MetaEpistemicController()
+controller = MetaController()
 decision = controller.monitor(result.trace, scores)
 print(f"\nMeta-layer decision: {decision.decision.value}")
 ```

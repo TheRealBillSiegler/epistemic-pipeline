@@ -178,7 +178,7 @@ class MetaDecision:
     decision: Enum  # ACCEPT | REFRAME | SWITCH_STRATEGY | ESCALATE
     details: dict   # extra info for v0.2+
 
-class MetaEpistemicController:
+class MetaController:
     def monitor(self, trace, scores, ontology, strategy, decomposition) -> MetaDecision: ...
 ```
 
@@ -254,7 +254,7 @@ epistemic-pipeline/
 │   ├── state.py                        # EpistemicState, O/E/B/R base types
 │   ├── pipeline.py                     # Stage protocol, runner, trace
 │   ├── norms.py                        # NormScore, score_pipeline_run()
-│   ├── meta.py                         # MetaEpistemicController, MetaDecision
+│   ├── meta.py                         # MetaController, MetaDecision
 │   └── encodings/bayes.py              # Bayesian specialization + stages
 ├── tests/                              # pytest suite
 │   ├── test_state.py                   # Immutability, generics, invariants

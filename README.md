@@ -1,12 +1,12 @@
 # Epistemic Pipeline
 
-> **Status: design phase.** The formal spec is complete. Implementation is in progress. The code example below shows the target API — it does not run yet.
+> **Status: v1.0 complete.** Four expressiveness demonstrations (Bayesian inference, STRIPS planning, forward-state search, MDP value iteration) are implemented with full pipeline, norms, and adaptive meta-layer.
 
 A formal system for making reasoning explicit and auditable. It tracks the vocabulary of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
 
 **Who is this for?** Researchers and engineers who build systems that reason — and need to inspect, replay, and evaluate that reasoning after the fact.
 
-[Formal Spec](docs/spec/) · [Design Document](docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md)
+[Formal Spec](docs/superpowers/specs/) · [Design Document](docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md)
 
 Python 3.14+ | Zero dependencies | MIT License
 
@@ -50,18 +50,16 @@ This design records the why. Every state is immutable — once created, it never
 
 ---
 
-## Target API
-
-> This is the planned API. It does not run yet.
+## API Example
 
 ```python
 from epistemic_pipeline import run_pipeline
 from epistemic_pipeline.encodings.bayes import (
-    BayesVocabulary, BayesCredences, BayesRevision, bayes_stages,
+    BayesOntology, BayesBeliefs, BayesRevision, bayes_stages,
 )
 
-# Define the problem vocabulary
-vocab = BayesVocabulary(
+# Define the problem ontology
+ontology = BayesOntology(
     hypotheses=["flu", "cold", "covid"],
     observables=["fever", "cough", "loss_of_smell"],
     # Likelihoods: P(symptom | disease). Each key is (disease, symptom, observed_value).
@@ -74,14 +72,14 @@ vocab = BayesVocabulary(
     },
 )
 
-# Prior credences — the starting confidence before any symptoms are observed.
+# Prior beliefs — the starting confidence before any symptoms are observed.
 # "Prior" means "before seeing the evidence." These numbers must sum to 1.
-credences = BayesCredences({"flu": 0.4, "cold": 0.4, "covid": 0.2})
+beliefs = BayesBeliefs({"flu": 0.4, "cold": 0.4, "covid": 0.2})
 
 # Run the pipeline — each stage is a pure function, state in, state out
 result = run_pipeline(
-    vocabulary=vocab,
-    credences=credences,
+    ontology=ontology,
+    beliefs=beliefs,
     revision_policy=BayesRevision(),
     evidence=[("fever", True), ("cough", True), ("loss_of_smell", True)],
     # Stages are the pipeline steps that run in order: frame the problem,
@@ -90,12 +88,12 @@ result = run_pipeline(
     stages=bayes_stages(),
 )
 
-print(result.credences)
+print(result.beliefs)
 # → {flu: 0.10, cold: 0.02, covid: 0.88}
 
 # Replay the reasoning trace — every intermediate state is preserved
 for i, state in enumerate(result.trace):
-    print(f"Step {i}: {state.credences}")
+    print(f"Step {i}: {state.beliefs}")
 # → Step 0: {flu: 0.40, cold: 0.40, covid: 0.20}
 # → Step 1: {flu: 0.52, cold: 0.20, covid: 0.28}   (after fever)
 # → Step 2: {flu: 0.48, cold: 0.23, covid: 0.29}   (after cough)
@@ -159,32 +157,30 @@ Each layer reads and writes different parts of the state tuple:
 
 ---
 
-## v0.1 — Deliberately Small, Deliberately Rigorous
-
-**Status: spec complete, implementation in progress.**
+## What Ships Today
 
 - Deterministic state machine implementing `(O, E, B, R)`
-- Bayesian inference as the first expressiveness demonstration
-- Toy medical diagnosis running end-to-end
-- Full state trace, norm scoring (evaluating the quality of the reasoning process, not just its output), meta-layer stub
-- No LLM. No external dependencies. Pure Python.
+- Four expressiveness demonstrations: Bayesian inference, STRIPS planning, forward-state search, MDP value iteration
+- Full state trace, norm scoring (evaluating the quality of the reasoning process, not just its output), adaptive meta-layer with intervention budget and cycle detection
+- Tool/LLM integration layer (v1.0)
+- No external dependencies. Pure Python.
 
 An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration — and that the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior credences must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
 
-The formal spec lives in [`docs/spec/`](docs/spec/). The code will live in [`src/epistemic_pipeline/`](src/epistemic_pipeline/). The spec defines the interfaces. The code implements them. Neither imports the other.
+The formal specs live in [`docs/superpowers/specs/`](docs/superpowers/specs/). The code lives in [`src/epistemic_pipeline/`](src/epistemic_pipeline/). The specs define the interfaces. The code implements them.
 
 ---
 
-## Expressiveness Roadmap
+## Expressiveness Demonstrations
 
-v0.1 demonstrates the architecture with one framework. The roadmap tests it with four:
+Four frameworks, each encoded as `(O, E, B, R)`:
 
-| | Framework | What it is | What it tests | R becomes |
-|:-:|-----------|-----------|---------------|-----------|
-| **v0.1** | Bayesian inference | The standard math for updating confidence from evidence | Probabilistic reasoning | Bayes' rule |
-| **v0.2** | STRIPS / PDDL | A formal language for describing planning problems — what actions exist, what they require, and what they change | Goal-directed planning — all four components (not just R) get reinterpreted: B becomes world state, E becomes action history | Search strategy |
-| **v0.3** | Newell & Simon | The problem space hypothesis — the idea that intelligent behavior is search through a space of possible states toward a goal. SOAR already implements this computationally | General problem solving | Operator selection |
-| **v0.4** | MDPs | Markov Decision Processes — a mathematical framework for choosing actions when outcomes are uncertain and future consequences matter | Decision-making under uncertainty | Bellman updates |
+| | Framework | What it is | What it tests | R becomes | Status |
+|:-:|-----------|-----------|---------------|-----------|--------|
+| **v0.1** | Bayesian inference | The standard math for updating confidence from evidence | Probabilistic reasoning | Bayes' rule | Done |
+| **v0.2** | STRIPS / PDDL | A formal language for describing planning problems — what actions exist, what they require, and what they change | Goal-directed planning — all four components (not just R) get reinterpreted: B becomes world state, E becomes action history | Search strategy | Done |
+| **v0.2** | Forward-state search | Exploring a space of possible states toward a goal | General problem solving | Operator selection | Done |
+| **v1.0** | MDPs | Markov Decision Processes — a mathematical framework for choosing actions when outcomes are uncertain and future consequences matter | Decision-making under uncertainty | Bellman updates | Done |
 
 The tuple is general enough to encode most things. Any computation can be described as a state machine — that is not the interesting claim. The interesting claim is that decomposing state into O, E, B, and R, with the access-control pattern in the layer table above, captures epistemically relevant structure that a generic state machine does not. The real test is whether each encoding preserves what makes its framework distinct.
 
@@ -192,12 +188,10 @@ The tuple is general enough to encode most things. Any computation can be descri
 
 ## Quick Start
 
-v0.1 is not released yet. Once it ships:
-
 ```bash
-uv pip install -e .    # install the package locally
-pytest                 # run the test suite
-pyright                # run the type checker
+uv pip install -e .        # install the package locally
+uv run pytest              # run the test suite
+uv run pyright             # run the type checker
 ```
 
 ---
@@ -206,10 +200,11 @@ pyright                # run the type checker
 
 ```text
 epistemic-pipeline/
-├── docs/spec/                      Formal specification — standalone, publishable
-├── src/epistemic_pipeline/         Reference implementation — standalone, installable
+├── docs/superpowers/specs/         Formal specifications
+├── docs/superpowers/plans/         Implementation plans
+├── research/                       Research notes (MCS series)
+├── src/epistemic_pipeline/         Reference implementation
 ├── tests/                          pytest suite
-├── examples/                       Runnable demonstrations
 └── pyproject.toml
 ```
 

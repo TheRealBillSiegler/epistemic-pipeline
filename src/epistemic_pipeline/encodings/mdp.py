@@ -12,11 +12,46 @@ Beliefs B: current value function and derived policy.
 Revision R: one full Bellman sweep — R(B, e, O) -> B'.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from types import MappingProxyType
 
 from epistemic_pipeline.meta import MetaController
 from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
 from epistemic_pipeline.state import EpistemicState, Metadata, Observation
+
+
+def _normalize_rewards(
+    raw: dict[tuple[str, str], float] | dict[str, float],
+    actions: tuple[str, ...],
+) -> MappingProxyType[tuple[str, str], float]:
+    """Normalize rewards to canonical (state, action) form.
+
+    If the input uses plain string keys (state-only rewards), expand
+    each entry across all actions. Wraps the result in a read-only
+    MappingProxyType.
+
+    Args:
+        raw: rewards as either {(s, a): r} or {s: r}.
+        actions: the action set, needed to expand state-only rewards.
+
+    Returns:
+        Read-only mapping from (state, action) to reward.
+    """
+    if not raw:
+        return MappingProxyType({})
+    first_key = next(iter(raw))
+    if isinstance(first_key, str):
+        expanded: dict[tuple[str, str], float] = {}
+        for state, reward in raw.items():  # type: ignore[union-attr]
+            for a in actions:
+                expanded[(state, a)] = reward  # type: ignore[index]
+        return MappingProxyType(expanded)
+    return MappingProxyType(raw)  # type: ignore[arg-type]
+
+
+def _freeze_dict[K, V](d: dict[K, V]) -> MappingProxyType[K, V]:
+    """Wrap a dict in a read-only MappingProxyType."""
+    return MappingProxyType(d)
 
 
 @dataclass(frozen=True)
@@ -26,8 +61,10 @@ class MDPOntology:
     states: all state names (e.g. frozenset({"s0", "s1"})).
     actions: action names in a fixed order.
     transitions: T(s, a, s') probabilities. Key is (s, a, s') tuple.
-      Only non-zero entries need to be present.
-    rewards: either R(s, a) with tuple keys or R(s) with string keys.
+      Only non-zero entries need to be present. Immutable after construction.
+    rewards: R(s, a) reward values. Always stored as (state, action) keys.
+      Callers may pass {s: r} dicts — these are expanded across all actions.
+      Immutable after construction.
     discount: gamma in [0, 1). Scales future rewards.
     terminal_states: states where the episode ends. No outgoing value.
     epsilon: convergence threshold. Iteration stops when max delta < epsilon.
@@ -35,17 +72,40 @@ class MDPOntology:
 
     states: frozenset[str]
     actions: tuple[str, ...]
-    transitions: dict[tuple[str, str, str], float]
-    rewards: dict[tuple[str, str], float] | dict[str, float]
-    discount: float
+    transitions: MappingProxyType[tuple[str, str, str], float] = field(default_factory=lambda: MappingProxyType({}))
+    rewards: MappingProxyType[tuple[str, str], float] = field(default_factory=lambda: MappingProxyType({}))
+    discount: float = 0.9
     terminal_states: frozenset[str] = frozenset()
     epsilon: float = 1e-6
+
+    def __init__(
+        self,
+        states: frozenset[str],
+        actions: tuple[str, ...],
+        transitions: dict[tuple[str, str, str], float] | MappingProxyType[tuple[str, str, str], float],
+        rewards: dict[tuple[str, str], float] | dict[str, float] | MappingProxyType[tuple[str, str], float],
+        discount: float,
+        terminal_states: frozenset[str] = frozenset(),
+        epsilon: float = 1e-6,
+    ) -> None:
+        object.__setattr__(self, "states", states)
+        object.__setattr__(self, "actions", actions)
+        if isinstance(transitions, MappingProxyType):
+            object.__setattr__(self, "transitions", transitions)
+        else:
+            object.__setattr__(self, "transitions", _freeze_dict(transitions))
+        if isinstance(rewards, MappingProxyType):
+            object.__setattr__(self, "rewards", rewards)
+        else:
+            object.__setattr__(self, "rewards", _normalize_rewards(rewards, actions))
+        object.__setattr__(self, "discount", discount)
+        object.__setattr__(self, "terminal_states", terminal_states)
+        object.__setattr__(self, "epsilon", epsilon)
 
     def get_reward(self, state: str, action: str) -> float:
         """Look up the reward for a (state, action) pair.
 
-        Tries (state, action) tuple key first. Falls back to plain
-        string key. Returns 0.0 if neither key exists.
+        Returns 0.0 if the pair has no entry.
 
         Args:
             state: the current state name.
@@ -54,14 +114,7 @@ class MDPOntology:
         Returns:
             Reward value, or 0.0 if not found.
         """
-        sa_key: tuple[str, str] = (state, action)
-        # Try tuple key (state, action) first.
-        if sa_key in self.rewards:
-            return float(self.rewards[sa_key])  # type: ignore[index]
-        # Fall back to plain string key.
-        if state in self.rewards:
-            return float(self.rewards[state])  # type: ignore[index]
-        return 0.0
+        return self.rewards.get((state, action), 0.0)
 
     def adequate(self, evidence: tuple[Observation, ...]) -> bool:
         """Check that all observed variables are known states.
@@ -88,15 +141,35 @@ class MDPBeliefs:
     """Value function and policy derived by value iteration.
 
     value_function: V(s) — estimated total discounted reward from state s.
-    policy: pi(s) — best action to take from state s.
+      Immutable after construction.
+    policy: pi(s) — best action to take from state s. Immutable after
+      construction.
     iteration: how many Bellman sweeps have run.
     converged: True when max delta across all states dropped below epsilon.
     """
 
-    value_function: dict[str, float]
-    policy: dict[str, str]
+    value_function: MappingProxyType[str, float] = field(default_factory=lambda: MappingProxyType({}))
+    policy: MappingProxyType[str, str] = field(default_factory=lambda: MappingProxyType({}))
     iteration: int = 0
     converged: bool = False
+
+    def __init__(
+        self,
+        value_function: dict[str, float] | MappingProxyType[str, float],
+        policy: dict[str, str] | MappingProxyType[str, str],
+        iteration: int = 0,
+        converged: bool = False,
+    ) -> None:
+        if isinstance(value_function, MappingProxyType):
+            object.__setattr__(self, "value_function", value_function)
+        else:
+            object.__setattr__(self, "value_function", _freeze_dict(value_function))
+        if isinstance(policy, MappingProxyType):
+            object.__setattr__(self, "policy", policy)
+        else:
+            object.__setattr__(self, "policy", _freeze_dict(policy))
+        object.__setattr__(self, "iteration", iteration)
+        object.__setattr__(self, "converged", converged)
 
 
 @dataclass(frozen=True)
@@ -105,8 +178,9 @@ class MDPProblem:
 
     states: all state names.
     actions: action names.
-    transitions: T(s, a, s') non-zero probability entries.
-    rewards: R(s,a) with tuple keys or R(s) with string keys.
+    transitions: T(s, a, s') non-zero probability entries. Immutable.
+    rewards: R(s, a) reward values. Callers may pass {s: r} dicts —
+      these are expanded across all actions at construction time. Immutable.
     discount: gamma in [0, 1).
     terminal_states: absorbing states.
     epsilon: convergence threshold.
@@ -115,12 +189,38 @@ class MDPProblem:
 
     states: frozenset[str]
     actions: tuple[str, ...]
-    transitions: dict[tuple[str, str, str], float]
-    rewards: dict[tuple[str, str], float] | dict[str, float]
-    discount: float
+    transitions: MappingProxyType[tuple[str, str, str], float] = field(default_factory=lambda: MappingProxyType({}))
+    rewards: MappingProxyType[tuple[str, str], float] = field(default_factory=lambda: MappingProxyType({}))
+    discount: float = 0.9
     terminal_states: frozenset[str] = frozenset()
     epsilon: float = 1e-6
     max_iterations: int = 1000
+
+    def __init__(
+        self,
+        states: frozenset[str],
+        actions: tuple[str, ...],
+        transitions: dict[tuple[str, str, str], float] | MappingProxyType[tuple[str, str, str], float],
+        rewards: dict[tuple[str, str], float] | dict[str, float] | MappingProxyType[tuple[str, str], float],
+        discount: float,
+        terminal_states: frozenset[str] = frozenset(),
+        epsilon: float = 1e-6,
+        max_iterations: int = 1000,
+    ) -> None:
+        object.__setattr__(self, "states", states)
+        object.__setattr__(self, "actions", actions)
+        if isinstance(transitions, MappingProxyType):
+            object.__setattr__(self, "transitions", transitions)
+        else:
+            object.__setattr__(self, "transitions", _freeze_dict(transitions))
+        if isinstance(rewards, MappingProxyType):
+            object.__setattr__(self, "rewards", rewards)
+        else:
+            object.__setattr__(self, "rewards", _normalize_rewards(rewards, actions))
+        object.__setattr__(self, "discount", discount)
+        object.__setattr__(self, "terminal_states", terminal_states)
+        object.__setattr__(self, "epsilon", epsilon)
+        object.__setattr__(self, "max_iterations", max_iterations)
 
 
 def mdp_update(
@@ -146,7 +246,7 @@ def mdp_update(
         Updated MDPBeliefs after one Bellman sweep.
     """
     old_v = beliefs.value_function
-    new_v: dict[str, float] = dict(old_v)
+    new_v: dict[str, float] = dict(old_v)  # mutable copy for this sweep
     new_policy: dict[str, str] = dict(beliefs.policy)
 
     delta = 0.0
@@ -176,6 +276,7 @@ def mdp_update(
 
     converged = delta < ontology.epsilon
 
+    # Freeze the new dicts into MDPBeliefs.
     return MDPBeliefs(
         value_function=new_v,
         policy=new_policy,

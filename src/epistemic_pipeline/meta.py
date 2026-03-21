@@ -69,6 +69,15 @@ _MIN_CONTRADICTIONS_FOR_ESCALATE = 2
 class MetaController:
     """Meta-epistemic controller with functional decision logic.
 
+    Intentionally mutable. The meta-layer sits *outside* the pipeline's
+    immutability boundary. It observes pipeline traces (which are
+    immutable) and tracks its own cross-invocation state — the
+    intervention budget (k) and the last trigger pair for cycle
+    detection. This state cannot live inside the pipeline trace because
+    it spans multiple pipeline runs. Making monitor() return a new
+    MetaController would push bookkeeping onto every caller with no
+    correctness benefit, since the meta-layer is a singleton observer.
+
     Evaluates triggers in priority order:
     1. Budget exhaustion — k >= K_max.
     2. Cycle detection — same (trigger, corrective_action) pair recurring.
@@ -80,7 +89,7 @@ class MetaController:
 
     Attributes:
         thresholds: decision boundaries for all triggers.
-        intervention_count: number of non-ACCEPT decisions so far.
+        intervention_count: number of non-ACCEPT decisions so far (k).
         last_trigger: the (trigger_type, corrective_action) pair from the
             most recent non-ACCEPT decision. None if no intervention yet.
     """
@@ -207,6 +216,11 @@ class MetaController:
                 "repeated_contradictions",
                 "escalate",
             ),
+            # TODO: no encoding currently generates this anomaly. A future
+            # implementation should check whether evidence patterns violate
+            # d-separation in the ontology's causal graph (if one exists).
+            # For now, callers can inject "causal_inconsistency" into
+            # metadata.anomalies manually to trigger ESCALATE.
             ("causal_inconsistency" in anomalies, "causal_inconsistency", "escalate"),
             # 4. REFRAME
             (norm is not None and norm.power is False, "ontology_inadequate", "reframe_ontology"),
