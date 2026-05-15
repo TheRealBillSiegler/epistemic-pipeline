@@ -93,12 +93,14 @@ class MockTool:
         """
         self._responses = responses
 
-    def invoke(self, name: str, _args: dict[str, object]) -> ToolResult:
+    def invoke(
+        self, name: str, args: dict[str, object],
+    ) -> ToolResult:
         """Return the canned response for ``name``.
 
         Args:
             name: The tool name to look up.
-            _args: Ignored in mock implementation.
+            args: Ignored in mock implementation.
 
         Returns:
             The canned ToolResult for this name.
@@ -106,4 +108,5 @@ class MockTool:
         Raises:
             KeyError: If ``name`` has no canned response.
         """
+        _ = args
         return self._responses[name]

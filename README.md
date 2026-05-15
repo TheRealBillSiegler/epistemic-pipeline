@@ -2,7 +2,7 @@
 
 > **Status: v1.0 complete.** Four expressiveness demonstrations (Bayesian inference, STRIPS planning, forward-state search, MDP value iteration) are implemented with full pipeline, norms, and adaptive meta-layer.
 
-A formal system for making reasoning explicit and auditable. It tracks the vocabulary of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
+A formal system for making reasoning explicit and auditable. It tracks the ontology of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
 
 **Who is this for?** Researchers and engineers who build systems that reason — and need to inspect, replay, and evaluate that reasoning after the fact.
 
@@ -16,23 +16,23 @@ Python 3.14+ | Zero dependencies | MIT License
 
 Many reasoning systems — human or artificial — can be modeled as four operations:
 
-1. **Define a vocabulary** for the problem → what concepts exist?
+1. **Define an ontology** for the problem → what concepts exist?
 2. **Gather evidence** → what has been observed?
-3. **Hold credences** → how confident is the system in each hypothesis? A credence is a number between 0 and 1 that represents a degree of confidence. 0 means "certainly false." 1 means "certainly true." 0.6 means "more likely than not."
-4. **Revise those credences** when new evidence arrives → how does the system update?
+3. **Hold beliefs** → how confident is the system in each hypothesis? A belief here is graded — a number between 0 and 1 that represents a degree of confidence. 0 means "certainly false." 1 means "certainly true." 0.6 means "more likely than not."
+4. **Revise those beliefs** when new evidence arrives → how does the system update?
 
 This project makes those four operations explicit:
 
 | | Component | What it is | Example |
 |:-:|-----------|-----------|---------|
-| **O** | Vocabulary | The concepts, types, and constraints of the problem | `diseases: [flu, cold, covid]` / `symptoms: [fever, cough, loss_of_smell]` |
+| **O** | Ontology | The concepts, types, and constraints of the problem | `diseases: [flu, cold, covid]` / `symptoms: [fever, cough, loss_of_smell]` |
 | **E** | Evidence | What has been observed | `[fever=true, cough=true, loss_of_smell=true]` |
-| **B** | Credences | A number for each hypothesis saying how confident the system is (0 = impossible, 1 = certain) | `{flu: 0.10, cold: 0.02, covid: 0.88}` |
-| **R** | Revision | The rule for updating credences | Bayes' rule, search algorithms, or Bellman updates — your choice |
+| **B** | Beliefs | A graded degree of confidence in each hypothesis (0 = impossible, 1 = certain) | `{flu: 0.10, cold: 0.02, covid: 0.88}` |
+| **R** | Revision | The rule for updating beliefs | Bayes' rule, search algorithms, or Bellman updates — your choice |
 
 **R is the key — but not the only thing that changes.** Different reasoning frameworks reinterpret all four components:
 
-- Set R to **Bayes' rule** → probabilistic reasoning. Bayes' rule is the standard formula for updating confidence when new evidence arrives. O lists hypotheses and observations. E is observed data. B is a probability distribution (a set of numbers that sum to 1, one per hypothesis).
+- Set R to **Bayes' rule** → probabilistic reasoning. Bayes' rule is the standard formula for updating confidence when new evidence arrives. O defines hypotheses and observations. E is observed data. B is a probability distribution (a set of numbers that sum to 1, one per hypothesis).
 - Set R to a **search algorithm** → planning. A search algorithm explores possible paths through a space of options to find one that reaches a goal. O describes actions and their effects. E records which states have been visited. B tracks the current world state.
 - Set R to a **Bellman update** → decision-making. A Bellman update is the core formula from reinforcement learning: it computes the value of a state by combining the immediate reward with the expected value of future states. O defines states and actions. E provides observed rewards. B holds value estimates.
 
@@ -110,9 +110,9 @@ R is the part you swap. Every revision policy implements one method:
 
 ```python
 class MyRevision:
-    def __call__(self, credences: B, evidence: e, vocabulary: O) -> B:
-        # Take current credences, one new observation, and the vocabulary.
-        # Return updated credences. No side effects.
+    def __call__(self, beliefs: B, evidence: e, ontology: O) -> B:
+        # Take current beliefs, one new observation, and the ontology.
+        # Return updated beliefs. No side effects.
         ...
 ```
 
@@ -124,25 +124,28 @@ class MyRevision:
 
 Two views of one system. The **stack** describes what kinds of modules exist (five layers, from low-level tools up to self-monitoring). The **tuple** describes what changes as reasoning progresses (the four data structures that make up the system's state at any moment).
 
-```text
-  ╔═══════════════════════════════════════════════════════════════╗
-  ║                    META-EPISTEMIC LAYER                      ║
-  ║         watches everything · decides what to do next         ║
-  ╠═══════════════════════════════════════════════════════════════╣
-  ║                    EPISTEMIC NORMS                           ║
-  ║         accurate? · efficient? · reproducible?               ║
-  ╠═══════════════════════════════════════════════════════════════╣
-  ║                    PIPELINE                                  ║
-  ║         frame → decompose → model → strategy → test → integrate
-  ╠═══════════════════════════════════════════════════════════════╣
-  ║                    COGNITIVE PROCESSES                       ║
-  ║         inference · search · memory · heuristics · planning  ║
-  ╠═══════════════════════════════════════════════════════════════╣
-  ║                    TOOLS / ENVIRONMENT                       ║
-  ║         LLMs · APIs · databases · simulators · sensors       ║
-  ╚═══════════════════════════════════════════════════════════════╝
+```mermaid
+graph TD
+    META["Meta-epistemic layer
+    Watches everything · decides what to do next"]
+    NORMS["Epistemic norms
+    Accurate? · Efficient? · Reproducible?"]
+    PIPE["Pipeline
+    Sequences the six reasoning stages below"]
+    COG["Cognitive processes
+    Inference · search · memory · heuristics · planning"]
+    TOOLS["Tools / environment
+    LLMs · APIs · databases · simulators · sensors"]
+    STATE(["State: ( O , E , B , R )"])
 
-                    State: ( O , E , B , R )
+    META --- NORMS --- PIPE --- COG --- TOOLS -.- STATE
+```
+
+The pipeline layer runs six stages in order. Each stage is a pure function — state in, state out:
+
+```mermaid
+graph LR
+    F["Frame"] --> D["Decompose"] --> M["Model"] --> S["Strategy"] --> T["Test"] --> I["Integrate"]
 ```
 
 Each layer reads and writes different parts of the state tuple:
@@ -165,7 +168,7 @@ Each layer reads and writes different parts of the state tuple:
 - Tool/LLM integration layer (v1.0)
 - No external dependencies. Pure Python.
 
-An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration — and that the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior credences must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
+An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration — and that the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior beliefs must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
 
 The formal specs live in [`docs/superpowers/specs/`](docs/superpowers/specs/). The code lives in [`src/epistemic_pipeline/`](src/epistemic_pipeline/). The specs define the interfaces. The code implements them.
 
@@ -174,6 +177,27 @@ The formal specs live in [`docs/superpowers/specs/`](docs/superpowers/specs/). T
 ## Expressiveness Demonstrations
 
 Four frameworks, each encoded as `(O, E, B, R)`:
+
+```mermaid
+graph TD
+    OEBR(["( O, E, B, R )"])
+
+    OEBR --> BAYES["Bayesian inference
+    O: Hypotheses · B: Probabilities
+    R: Bayes' rule"]
+
+    OEBR --> STRIPS["STRIPS / PDDL
+    O: Actions & effects · B: World state
+    R: Search strategy"]
+
+    OEBR --> SEARCH["Forward-state search
+    O: Operators · B: Current state
+    R: Operator selection"]
+
+    OEBR --> MDP["MDP value iteration
+    O: States & actions · B: Value estimates
+    R: Bellman update"]
+```
 
 | | Framework | What it is | What it tests | R becomes | Status |
 |:-:|-----------|-----------|---------------|-----------|--------|
@@ -214,7 +238,7 @@ epistemic-pipeline/
 
 This project draws on several traditions. It doesn't replace any of them.
 
-**Belief revision theory.** The [AGM framework](https://plato.stanford.edu/entries/logic-belief-revision/) defines axioms for rational belief change over logically closed belief sets. A logically closed set contains every consequence of its beliefs — if it believes "all dogs are mammals" and "Rex is a dog," it also believes "Rex is a mammal." AGM operates on belief sets (you believe something or you don't). Our R operates on credences (degrees of confidence). These are different epistemic attitudes, and the bridge between them is itself an active area of research. Showing that AGM's postulates hold under our encoding is an open task.
+**Belief revision theory.** The [AGM framework](https://plato.stanford.edu/entries/logic-belief-revision/) defines axioms for rational belief change over logically closed belief sets. A logically closed set contains every consequence of its beliefs — if it believes "all dogs are mammals" and "Rex is a dog," it also believes "Rex is a mammal." AGM operates on belief sets (you believe something or you don't). Our B holds graded beliefs (degrees of confidence). These are different epistemic attitudes, and the bridge between them is itself an active area of research. Showing that AGM's postulates hold under our encoding is an open task.
 
 **Jeffrey conditionalization.** Standard Bayes' rule assumes the evidence is certain — you either observed the symptom or you didn't. Jeffrey conditionalization, introduced by Richard Jeffrey in *The Logic of Decision* (1965), generalizes this to uncertain evidence. For example: "I'm 70% sure I saw a fever." Our v0.1 assumes certain evidence. Supporting uncertain evidence through Jeffrey conditionalization is a natural extension.
 
@@ -228,7 +252,7 @@ This project draws on several traditions. It doesn't replace any of them.
 
 **What this project does not cover.** Goals and motivation (central to SOAR and human cognition). Attention and salience (which information to focus on). Dual-process reasoning — Kahneman's distinction between fast, automatic judgment (System 1) and slow, deliberate analysis (System 2). Bounded rationality — Simon's insight that real reasoners have limited time and memory, and Gigerenzer's related but distinct argument that simple heuristics can outperform optimization by exploiting the structure of the environment. Learning across runs — the system's revision policy R is fixed; it does not improve from experience the way ACT-R's production compilation and SOAR's chunking do. Online metacognitive monitoring. Active inference (Friston's framework where perception and action are both forms of prediction-error minimization). These reflect scope decisions for v0.1, not claims that they don't matter.
 
-**What's new here.** Few frameworks separate vocabulary, evidence, credences, and revision into a typed, immutable state tuple that preserves every trace. Fewer score each run against epistemic norms. The norm-scoring layer is the most distinctive feature — but v0.1 implements only a simple accuracy check. Richer norms (calibration, coherence, efficiency of evidence use) are needed to demonstrate real value. Is this genuinely illuminating, or just a relabeling of generic state machines? The expressiveness demonstrations must answer that. Each encoding must preserve what makes its framework distinct — and the criteria for "preserves" must be stated precisely for each one.
+**What's new here.** Few frameworks separate ontology, evidence, beliefs, and revision into a typed, immutable state tuple that preserves every trace. Fewer score each run against epistemic norms. The norm-scoring layer is the most distinctive feature — but v0.1 implements only a simple accuracy check. Richer norms (calibration, coherence, efficiency of evidence use) are needed to demonstrate real value. Is this genuinely illuminating, or just a relabeling of generic state machines? The expressiveness demonstrations must answer that. Each encoding must preserve what makes its framework distinct — and the criteria for "preserves" must be stated precisely for each one.
 
 ---
 

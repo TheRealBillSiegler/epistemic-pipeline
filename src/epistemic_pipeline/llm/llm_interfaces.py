@@ -7,6 +7,7 @@ This module defines the protocol, an adapter to convert responses into
 Observations, and a mock for testing.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -181,3 +182,133 @@ class MockLLM:
             KeyError: If ``state_description`` has no canned response.
         """
         return self._responses[state_description]
+
+
+class RatingLLMInterface(LLMInterface, Protocol):
+    """LLM that can both reason and rate hypothesis confidence.
+
+    Used by the LLM-agent encoding. Extends LLMInterface with two
+    methods: pick_tool (choose which tool to call next) and
+    rate_confidence (produce a fresh confidence vector given the
+    current evidence). Existing LLM consumers that need only the
+    v1.0 methods continue to use LLMInterface.
+    """
+
+    def pick_tool(
+        self,
+        question: str,
+        tools: Sequence[str],
+        evidence_summary: str,
+    ) -> LLMResponse:
+        """Choose which tool to call next.
+
+        Args:
+            question: the natural-language task.
+            tools: tool names available to the agent.
+            evidence_summary: a summary of evidence gathered so far.
+
+        Returns:
+            An LLMResponse whose content is a JSON object of the form
+            ``{"tool": "<tool_name>", "args": {...}}``.
+        """
+        ...
+
+    def rate_confidence(
+        self,
+        question: str,
+        hypotheses: Sequence[str],
+        evidence_summary: str,
+    ) -> LLMResponse:
+        """Produce a fresh confidence vector across hypotheses.
+
+        Args:
+            question: the natural-language task.
+            hypotheses: closed set of candidate answers.
+            evidence_summary: a summary of evidence gathered so far.
+
+        Returns:
+            An LLMResponse whose content is a JSON object mapping
+            hypothesis name to confidence in [0, 1]. Confidences need
+            not sum to 1.0; the revision policy renormalizes.
+        """
+        ...
+
+
+class MockRatingLLM(MockLLM):
+    """Test implementation of RatingLLMInterface.
+
+    Extends MockLLM. ``pick_tool`` and ``rate_confidence`` return
+    canned responses by call index, drawn from two queues passed at
+    construction time. This shape matches the LLM-agent loop, which
+    calls these two methods in a fixed alternating pattern.
+    """
+
+    def __init__(
+        self,
+        responses: dict[str, LLMResponse],
+        tool_picks: Sequence[LLMResponse] = (),
+        confidence_ratings: Sequence[LLMResponse] = (),
+    ) -> None:
+        """Initialize with canned responses.
+
+        Args:
+            responses: Maps input string to LLMResponse for the four
+                base LLMInterface methods.
+            tool_picks: One response per call to ``pick_tool``,
+                consumed in order.
+            confidence_ratings: One response per call to
+                ``rate_confidence``, consumed in order.
+        """
+        super().__init__(responses)
+        self._tool_picks = list(tool_picks)
+        self._confidence_ratings = list(confidence_ratings)
+        self._tool_pick_index = 0
+        self._confidence_rating_index = 0
+
+    def pick_tool(
+        self,
+        question: str,
+        tools: Sequence[str],
+        evidence_summary: str,
+    ) -> LLMResponse:
+        """Return the next canned tool-pick response.
+
+        Args:
+            question: ignored.
+            tools: ignored.
+            evidence_summary: ignored.
+
+        Returns:
+            The next LLMResponse in the tool_picks queue.
+
+        Raises:
+            IndexError: If the queue is exhausted.
+        """
+        _ = (question, tools, evidence_summary)
+        response = self._tool_picks[self._tool_pick_index]
+        self._tool_pick_index += 1
+        return response
+
+    def rate_confidence(
+        self,
+        question: str,
+        hypotheses: Sequence[str],
+        evidence_summary: str,
+    ) -> LLMResponse:
+        """Return the next canned confidence-rating response.
+
+        Args:
+            question: ignored.
+            hypotheses: ignored.
+            evidence_summary: ignored.
+
+        Returns:
+            The next LLMResponse in the confidence_ratings queue.
+
+        Raises:
+            IndexError: If the queue is exhausted.
+        """
+        _ = (question, hypotheses, evidence_summary)
+        response = self._confidence_ratings[self._confidence_rating_index]
+        self._confidence_rating_index += 1
+        return response

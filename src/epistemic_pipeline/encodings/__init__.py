@@ -8,6 +8,14 @@ from epistemic_pipeline.encodings.bayes import (
     bayes_update,
     run_bayesian_pipeline,
 )
+from epistemic_pipeline.encodings.llm_agent import (
+    LLMAgentBeliefs,
+    LLMAgentOntology,
+    LLMAgentProblem,
+    llm_agent_argmax,
+    llm_agent_update,
+    run_llm_agent_pipeline,
+)
 from epistemic_pipeline.encodings.mdp import (
     MDPBeliefs,
     MDPOntology,
@@ -37,6 +45,9 @@ __all__ = [
     "BayesBeliefs",
     "BayesOntology",
     "BayesProblem",
+    "LLMAgentBeliefs",
+    "LLMAgentOntology",
+    "LLMAgentProblem",
     "MDPBeliefs",
     "MDPOntology",
     "MDPProblem",
@@ -51,8 +62,11 @@ __all__ = [
     "SearchProblem",
     "bayes_argmax",
     "bayes_update",
+    "llm_agent_argmax",
+    "llm_agent_update",
     "mdp_update",
     "run_bayesian_pipeline",
+    "run_llm_agent_pipeline",
     "run_mdp_pipeline",
     "run_search_pipeline",
     "run_strips_pipeline",
