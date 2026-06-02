@@ -2,7 +2,7 @@
 
 > **Status: v1.0 complete.** Four expressiveness demonstrations (Bayesian inference, STRIPS planning, forward-state search, MDP value iteration) are implemented with full pipeline, norms, and adaptive meta-layer.
 
-A formal system for making reasoning explicit and auditable. It tracks the ontology of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
+A formal system for making reasoning explicit and auditable. It tracks four things: the vocabulary of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
 
 **Who is this for?** Researchers and engineers who build systems that reason — and need to inspect, replay, and evaluate that reasoning after the fact.
 
@@ -36,15 +36,15 @@ This project makes those four operations explicit:
 - Set R to a **search algorithm** → planning. A search algorithm explores possible paths through a space of options to find one that reaches a goal. O describes actions and their effects. E records which states have been visited. B tracks the current world state.
 - Set R to a **Bellman update** → decision-making. A Bellman update is the core formula from reinforcement learning: it computes the value of a state by combining the immediate reward with the expected value of future states. O defines states and actions. E provides observed rewards. B holds value estimates.
 
-The tuple `(O, E, B, R)` is a state machine — a system with a defined state that changes according to fixed rules. O is read-only. E is append-only. B is the mutable state. R is the transition function you plug in. That generality is deliberate — and it means the hard question is not *can* a framework be encoded, but *does the encoding preserve what matters about it*.
+The tuple `(O, E, B, R)` is a state machine. A state machine is a system with a defined state that changes according to fixed rules. O is read-only. E is append-only. B is the mutable state. R is the transition function you plug in. That generality is deliberate. The hard question is not *can* a framework be encoded, but *does the encoding preserve what matters about it*.
 
 ---
 
 ## Why This Matters
 
-Many AI systems produce outputs without tracking how they got there. Logging tools record *what happened*. Experiment trackers record *which run produced which result*. Neither records *why* — the epistemic state that led to each decision.
+Many AI systems produce outputs without tracking how they got there. Logging tools record *what happened*. Experiment trackers record *which run produced which result*. Neither records *why*. They don't capture the epistemic state that led to each decision. Epistemic state means what the system believed and why.
 
-This design records the why. Every state is immutable — once created, it never changes. Every transition is a pure function (same inputs always produce the same outputs, with no side effects). The system preserves the full trace of epistemic states. You can always answer:
+This design records the why. Every state is immutable. Once created, it never changes. Every transition is a pure function. Pure means same inputs always produce the same outputs, with no side effects. The system preserves the full trace of epistemic states. You can always answer:
 
 > *What did the system believe at each step, and what rule did it use to change its mind?*
 
@@ -102,7 +102,7 @@ for i, state in enumerate(result.trace):
 
 Three symptoms in. One diagnosis out. Every step recorded and replayable.
 
-Note: the model assumes symptoms are conditionally independent given the disease. Conditional independence means each symptom's probability depends only on the disease, not on whether other symptoms are present. This is the "naive Bayes" simplification. Real medical diagnosis is more complex, but this keeps the example clear.
+Note: the model assumes symptoms are conditionally independent given the disease. Conditional independence is a simplifying assumption. It means each symptom's probability depends only on the disease, not on whether other symptoms are present. This is the "naive Bayes" simplification. Real medical diagnosis is more complex. This keeps the example clear.
 
 ### Writing Your Own Revision Policy
 
@@ -122,7 +122,7 @@ class MyRevision:
 
 ## The Architecture
 
-Two views of one system. The **stack** describes what kinds of modules exist (five layers, from low-level tools up to self-monitoring). The **tuple** describes what changes as reasoning progresses (the four data structures that make up the system's state at any moment).
+Two views of one system. The **stack** describes what kinds of modules exist. Five layers, from low-level tools up to self-monitoring. The **tuple** describes what changes as reasoning progresses. The four data structures that make up the system's state at any moment.
 
 ```mermaid
 graph TD
@@ -164,11 +164,11 @@ Each layer reads and writes different parts of the state tuple:
 
 - Deterministic state machine implementing `(O, E, B, R)`
 - Four expressiveness demonstrations: Bayesian inference, STRIPS planning, forward-state search, MDP value iteration
-- Full state trace, norm scoring (evaluating the quality of the reasoning process, not just its output), adaptive meta-layer with intervention budget and cycle detection
+- Full state trace, norm scoring, adaptive meta-layer with intervention budget and cycle detection. Norm scoring means evaluating the quality of the reasoning process, not just its output.
 - Tool/LLM integration layer (v1.0)
 - No external dependencies. Pure Python.
 
-An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration — and that the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior beliefs must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
+An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration. It shows the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior credences must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
 
 The formal specs live in [`docs/superpowers/specs/`](docs/superpowers/specs/). The code lives in [`src/epistemic_pipeline/`](src/epistemic_pipeline/). The specs define the interfaces. The code implements them.
 
@@ -202,11 +202,11 @@ graph TD
 | | Framework | What it is | What it tests | R becomes | Status |
 |:-:|-----------|-----------|---------------|-----------|--------|
 | **v0.1** | Bayesian inference | The standard math for updating confidence from evidence | Probabilistic reasoning | Bayes' rule | Done |
-| **v0.2** | STRIPS / PDDL | A formal language for describing planning problems — what actions exist, what they require, and what they change | Goal-directed planning — all four components (not just R) get reinterpreted: B becomes world state, E becomes action history | Search strategy | Done |
+| **v0.2** | STRIPS / PDDL | A formal language for describing planning problems: what actions exist, what they require, and what they change | Goal-directed planning. All four components (not just R) get reinterpreted: B becomes world state, E becomes action history | Search strategy | Done |
 | **v0.2** | Forward-state search | Exploring a space of possible states toward a goal | General problem solving | Operator selection | Done |
-| **v1.0** | MDPs | Markov Decision Processes — a mathematical framework for choosing actions when outcomes are uncertain and future consequences matter | Decision-making under uncertainty | Bellman updates | Done |
+| **v1.0** | MDPs | Markov Decision Processes. A mathematical framework for choosing actions when outcomes are uncertain and future consequences matter | Decision-making under uncertainty | Bellman updates | Done |
 
-The tuple is general enough to encode most things. Any computation can be described as a state machine — that is not the interesting claim. The interesting claim is that decomposing state into O, E, B, and R, with the access-control pattern in the layer table above, captures epistemically relevant structure that a generic state machine does not. The real test is whether each encoding preserves what makes its framework distinct.
+The tuple is general enough to encode most things. Any computation can be described as a state machine. That is not the interesting claim. The interesting claim is different. Decomposing state into O, E, B, and R captures epistemically relevant structure that a generic state machine does not. The access-control pattern in the layer table above matters. The real test is whether each encoding preserves what makes its framework distinct.
 
 ---
 
@@ -238,18 +238,18 @@ epistemic-pipeline/
 
 This project draws on several traditions. It doesn't replace any of them.
 
-**Belief revision theory.** The [AGM framework](https://plato.stanford.edu/entries/logic-belief-revision/) defines axioms for rational belief change over logically closed belief sets. A logically closed set contains every consequence of its beliefs — if it believes "all dogs are mammals" and "Rex is a dog," it also believes "Rex is a mammal." AGM operates on belief sets (you believe something or you don't). Our B holds graded beliefs (degrees of confidence). These are different epistemic attitudes, and the bridge between them is itself an active area of research. Showing that AGM's postulates hold under our encoding is an open task.
+**Belief revision theory.** The [AGM framework](https://plato.stanford.edu/entries/logic-belief-revision/) defines axioms for rational belief change over logically closed belief sets. A logically closed set contains every consequence of its beliefs. If it believes "all dogs are mammals" and "Rex is a dog," it also believes "Rex is a mammal." AGM operates on belief sets. You believe something or you don't. Our R operates on credences. Credences are degrees of confidence. These are different epistemic attitudes. The bridge between them is itself an active area of research. Showing that AGM's postulates hold under our encoding is an open task.
 
-**Jeffrey conditionalization.** Standard Bayes' rule assumes the evidence is certain — you either observed the symptom or you didn't. Jeffrey conditionalization, introduced by Richard Jeffrey in *The Logic of Decision* (1965), generalizes this to uncertain evidence. For example: "I'm 70% sure I saw a fever." Our v0.1 assumes certain evidence. Supporting uncertain evidence through Jeffrey conditionalization is a natural extension.
+**Jeffrey conditionalization.** Standard Bayes' rule assumes the evidence is certain. You either observed the symptom or you didn't. Jeffrey conditionalization generalizes this to uncertain evidence. Richard Jeffrey introduced this in *The Logic of Decision* (1965). For example: "I'm 70% sure I saw a fever." Our v0.1 assumes certain evidence. Supporting uncertain evidence through Jeffrey conditionalization is a natural extension.
 
-**Goldman's reliabilism.** Goldman's [*Epistemology and Cognition*](https://www.hup.harvard.edu/books/9780674258969) (1986) argues that a belief is justified if the process that produced it reliably tracks truth across many cases — not just one. Our Norms layer draws on this idea. But our v0.1 "accuracy" norm is a single-run correctness check — a starting point, not Goldman's full theory. We use the term "epistemic norms" broadly to include accuracy, efficiency, and reproducibility. In philosophy, epistemic norms typically refer to norms governing belief (coherence, calibration). Our usage extends to computational and methodological criteria.
+**Goldman's reliabilism.** Goldman's [*Epistemology and Cognition*](https://www.hup.harvard.edu/books/9780674258969) (1986) argues that a belief is justified if the process that produced it reliably tracks truth across many cases. Not just one. Our Norms layer draws on this idea. But our v0.1 "accuracy" norm is a single-run correctness check. A starting point, not Goldman's full theory. We use the term "epistemic norms" broadly to include accuracy, efficiency, and reproducibility. In philosophy, epistemic norms typically refer to norms governing belief. Coherence, calibration. Our usage extends to computational and methodological criteria.
 
-**Cognitive architectures.** [ACT-R](http://act-r.psy.cmu.edu/) and [SOAR](https://soar.eecs.umich.edu/) model human cognition with detailed memory, timing, and learning mechanisms. ACT-R integrates declarative memory (stored facts) and procedural memory (learned skills) with activation-based retrieval — memories that have been used recently or frequently are easier to recall. SOAR models goal-directed problem solving through impasse resolution (detecting when the system doesn't know what to do next) and chunking (automatically learning from solved impasses so the same problem is faster next time). Our 5-layer stack is modular in a software-architecture sense: it separates concerns into layers. ACT-R and SOAR are modular in a cognitive sense: they separate the mind into interacting subsystems. This project is a computational framework, not a cognitive model. It lacks their empirical grounding and makes no claims about how humans actually think.
+**Cognitive architectures.** [ACT-R](http://act-r.psy.cmu.edu/) and [SOAR](https://soar.eecs.umich.edu/) model human cognition with detailed memory, timing, and learning mechanisms. ACT-R integrates declarative memory and procedural memory with activation-based retrieval. Declarative memory stores facts. Procedural memory stores learned skills. Activation-based retrieval means memories that have been used recently or frequently are easier to recall. SOAR models goal-directed problem solving through impasse resolution and chunking. Impasse resolution detects when the system doesn't know what to do next. Chunking automatically learns from solved impasses so the same problem is faster next time. Our 5-layer stack is modular in a software-architecture sense. It separates concerns into layers. ACT-R and SOAR are modular in a cognitive sense. They separate the mind into interacting subsystems. This project is a computational framework, not a cognitive model. It lacks their empirical grounding and makes no claims about how humans actually think.
 
-**Probabilistic programming.** Languages like Pyro, Stan, and WebPPL bundle models, data, and inference into one framework. A probabilistic programming language lets you write a statistical model as code and then automatically infers the parameters that best explain your data. These tools handle continuous parameters, hierarchical models, and advanced sampling methods. Our architecture aims to be inference-method-agnostic — R can be Bayesian, but also search or decision-theoretic. The pipeline and norms layers have no direct equivalent in PPLs, though PPLs have their own diagnostics (convergence checks, model comparison).
+**Probabilistic programming.** Languages like Pyro, Stan, and WebPPL bundle models, data, and inference into one framework. A probabilistic programming language lets you write a statistical model as code. It then automatically infers the parameters that best explain your data. These tools handle continuous parameters, hierarchical models, and advanced sampling methods. Our architecture aims to be inference-method-agnostic. R can be Bayesian, but also search or decision-theoretic. The pipeline and norms layers have no direct equivalent in PPLs. PPLs have their own diagnostics. Convergence checks, model comparison.
 
-**Epistemic integrity in AI.** [*Beyond Prediction*](https://arxiv.org/html/2506.17331) (preprint, 2025) proposes an architecture where AI agents justify beliefs under formal constraints using Kripke semantics. Kripke semantics models knowledge across possible worlds — it asks not just "what do I believe?" but "what would I believe in every situation consistent with what I know?" Similar goals to this project, different formalism.
+**Epistemic integrity in AI.** [*Beyond Prediction*](https://arxiv.org/html/2506.17331) (preprint, 2025) proposes an architecture where AI agents justify beliefs under formal constraints using Kripke semantics. Kripke semantics models knowledge across possible worlds. It asks not just "what do I believe?" but "what would I believe in every situation consistent with what I know?" Similar goals to this project, different formalism.
 
-**What this project does not cover.** Goals and motivation (central to SOAR and human cognition). Attention and salience (which information to focus on). Dual-process reasoning — Kahneman's distinction between fast, automatic judgment (System 1) and slow, deliberate analysis (System 2). Bounded rationality — Simon's insight that real reasoners have limited time and memory, and Gigerenzer's related but distinct argument that simple heuristics can outperform optimization by exploiting the structure of the environment. Learning across runs — the system's revision policy R is fixed; it does not improve from experience the way ACT-R's production compilation and SOAR's chunking do. Online metacognitive monitoring. Active inference (Friston's framework where perception and action are both forms of prediction-error minimization). These reflect scope decisions for v0.1, not claims that they don't matter.
+**What this project does not cover.** Goals and motivation (central to SOAR and human cognition). Attention and salience. Salience means which information to focus on. Dual-process reasoning. Kahneman's distinction between fast, automatic judgment (System 1) and slow, deliberate analysis (System 2). Bounded rationality. Simon's insight that real reasoners have limited time and memory. Gigerenzer's related but distinct argument that simple heuristics can outperform optimization by exploiting the structure of the environment. Learning across runs. The system's revision policy R is fixed. It does not improve from experience the way ACT-R's production compilation and SOAR's chunking do. Online metacognitive monitoring. Active inference. Friston's framework where perception and action are both forms of prediction-error minimization. These reflect scope decisions for v0.1, not claims that they don't matter.
 
 **What's new here.** Few frameworks separate ontology, evidence, beliefs, and revision into a typed, immutable state tuple that preserves every trace. Fewer score each run against epistemic norms. The norm-scoring layer is the most distinctive feature — but v0.1 implements only a simple accuracy check. Richer norms (calibration, coherence, efficiency of evidence use) are needed to demonstrate real value. Is this genuinely illuminating, or just a relabeling of generic state machines? The expressiveness demonstrations must answer that. Each encoding must preserve what makes its framework distinct — and the criteria for "preserves" must be stated precisely for each one.
