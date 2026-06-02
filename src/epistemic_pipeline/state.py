@@ -2,8 +2,8 @@
 
 Every pipeline step reads one immutable state and produces a new one.
 The state is generic over ontology type O and beliefs type B.
-Evidence is always a tuple of Observations. The revision policy R
-is a callable: R(B, e, O) -> B'.
+Evidence is always a tuple of Observations.
+The revision policy R is a callable: R(B, e, O) -> B'.
 """
 
 from collections.abc import Callable
@@ -14,9 +14,9 @@ from enum import Enum
 class EvidenceType(Enum):
     """Type of evidence: how the observation was obtained.
 
-    OBSERVATION: direct sensory input (e.g. seeing a symptom).
-    REPORT: secondhand testimony (e.g. patient says "I feel sick").
-    MEASUREMENT: instrument reading (e.g. thermometer shows 102F).
+    OBSERVATION: direct sensory input. Example: seeing a symptom.
+    REPORT: secondhand testimony. Example: patient says "I feel sick".
+    MEASUREMENT: instrument reading. Example: thermometer shows 102F.
     """
 
     OBSERVATION = "observation"
@@ -26,15 +26,15 @@ class EvidenceType(Enum):
 
 @dataclass(frozen=True)
 class Observation:
-    """One piece of evidence: what was observed, its value, where it came from, and when.
+    """One piece of evidence: what was observed, its value, and metadata.
 
-    variable: the name of the thing measured (e.g. "fever").
-    value: the observed outcome (e.g. "high").
-    source: where the observation came from (e.g. "thermometer").
-    timestamp: when the observation happened (seconds since epoch or ordinal).
+    variable: the name of the thing measured. Example: "fever".
+    value: the observed outcome. Example: "high".
+    source: where the observation came from. Example: "thermometer".
+    timestamp: when the observation happened. Seconds since epoch or ordinal.
     confidence: how reliable this observation is, from 0.0 to 1.0. Default is 1.0 (fully trusted).
     etype: how the observation was obtained. Default is EvidenceType.OBSERVATION.
-    modality: the input channel that produced this observation (e.g. "tool", "llm"). None means unspecified.
+    modality: the input channel that produced this observation. Example: "tool", "llm". None means unspecified.
     """
 
     variable: str

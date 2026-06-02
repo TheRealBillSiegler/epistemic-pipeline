@@ -1,6 +1,6 @@
 """Tool integration interfaces for the epistemic pipeline.
 
-A tool is any external function the pipeline can call — a calculator,
+A tool is any external function the pipeline can call. A calculator,
 a database lookup, a web search. Tools return structured results.
 This module defines the protocol, an adapter to convert results into
 Observations, and a mock for testing.

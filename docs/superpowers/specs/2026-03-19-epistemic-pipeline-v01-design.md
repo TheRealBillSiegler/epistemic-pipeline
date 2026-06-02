@@ -23,8 +23,8 @@ No LLM. No external dependencies. Pure Python.
 
 **The core insight:** Two views of one system:
 
-- A 5-layer **stack** describes *what kinds of modules exist* — tools, cognitive processes, pipeline stages, evaluation norms, and a self-monitoring meta-layer
-- A 4-component **state tuple** `(O, E, B, R)` describes *what changes as reasoning progresses*
+- A 5-layer **stack** describes *what kinds of modules exist*. Tools, cognitive processes, pipeline stages, evaluation norms, and a self-monitoring meta-layer.
+- A 4-component **state tuple** `(O, E, B, R)` describes *what changes as reasoning progresses*.
 
 The stack is the architecture. The tuple is the data flowing through it. Each layer reads and writes different parts of the tuple:
 
@@ -36,7 +36,7 @@ The stack is the architecture. The tuple is the data flowing through it. Each la
 | **Norms** | evaluates | evaluates | evaluates | evaluates |
 | **Meta-Epistemic** | re-frames | requests more | forces revision | **modifies** |
 
-**Audience:** Two groups. Academic researchers — the spec is rigorous enough to publish. Engineers building AI systems — the code is a clean, installable Python package. The spec defines the interfaces. The code implements them. Neither imports the other.
+**Audience:** Two groups. Academic researchers. The spec is rigorous enough to publish. Engineers building AI systems. The code is a clean, installable Python package. The spec defines the interfaces. The code implements them. Neither imports the other.
 
 **Done when:**
 
@@ -54,7 +54,7 @@ The stack is the architecture. The tuple is the data flowing through it. Each la
 
 The system's complete state at any moment is four data structures bundled together.
 
-This bundle is **frozen** — you never modify it in place. Each pipeline stage takes one state and returns a new one. You get a full history of every reasoning step for free.
+This bundle is **frozen**. You never modify it in place. Each pipeline stage takes one state and returns a new one. You get a full history of every reasoning step for free.
 
 #### O — Ontology
 
@@ -62,7 +62,7 @@ The vocabulary of the problem. What things exist, what types they have, and what
 
 For example, in a medical diagnosis: the diseases are flu, cold, and covid. The symptoms are fever, cough, and loss of smell. A patient can only have one disease at a time.
 
-- O stays fixed during a pipeline run. Only the meta-layer (the system's self-monitor) can change it.
+- O stays fixed during a pipeline run. Only the meta-layer can change it. The meta-layer is the system's self-monitor.
 - **Invariant:** Every symbol used in E or B must already be defined in O.
 
 #### E — Evidence
@@ -77,7 +77,7 @@ What the system currently thinks is true. For each claim, a number saying how co
 
 For example: `{flu: 0.3, cold: 0.1, covid: 0.6}` means "60% confident it's covid."
 
-You can look up any belief and update it. You can also normalize — make all values sum to 1.0, which probabilities must do.
+You can look up any belief and update it. You can also normalize. Make all values sum to 1.0, which probabilities must do.
 
 #### R — Revision Policy
 
@@ -91,7 +91,7 @@ R is what makes the architecture general. **Swap R and you get a completely diff
 
 - Set R to Bayes' rule → probabilistic reasoning
 - Set R to a search algorithm → planning
-- Set R to a Bellman update (the math behind reinforcement learning) → decision-making
+- Set R to a Bellman update → decision-making. The math behind reinforcement learning.
 
 Everything else stays the same.
 
@@ -127,16 +127,16 @@ integrate(test(select(model(decompose(frame(input))))))
 |-------|-------------|----------|
 | **1. Frame** | Turns a raw question into a structured vocabulary (O) | O must define every symbol used later |
 | **2. Decompose** | Splits complex problems into sub-problems | Can be a no-op for simple problems |
-| **3. Model** | Sets up initial beliefs (B) and chooses a revision rule (R) | B and R must be compatible — `R(B, e, O)` must be valid |
+| **3. Model** | Sets up initial beliefs (B) and chooses a revision rule (R) | B and R must be compatible. `R(B, e, O)` must be valid |
 | **4. Strategy** | Decides what evidence to look at, in what order, and when to stop | Stored in `state.metadata["strategy"]` |
 | **5. Experiment** | Applies R once per observation, building up the evidence trail | `for each e: B' = R(B, e, O); E' = E + [e]` |
-| **6. Integrate** | Reads the final state and produces an answer with confidence levels | Does not change O, E, B, or R — only reads them |
+| **6. Integrate** | Reads the final state and produces an answer with confidence levels | Does not change O, E, B, or R. Only reads them |
 
 **Design properties:**
 
 - Every stage is a pure function (no side effects)
 - Any stage can be a no-op if the problem doesn't need it
-- Stages follow a Protocol (a Python interface contract). Any framework encoding — like the Bayesian one in Part II — can replace a stage with its own version.
+- Stages follow a Protocol. A Python interface contract. Any framework encoding (like the Bayesian one in Part II) can replace a stage with its own version.
 - The full list of intermediate states (the "trace") is kept for auditing and replay
 
 ---

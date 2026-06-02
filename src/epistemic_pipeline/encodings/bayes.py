@@ -1,9 +1,9 @@
 """Bayesian encoding: hypotheses, likelihoods, Bayes' rule.
 
-Expressiveness proof #1: probabilistic reasoning as an (O, E, B, R)
-tuple. The ontology holds hypotheses and likelihood tables. Beliefs
-are a probability distribution. The revision policy applies Bayes'
-theorem to update beliefs given each observation.
+Expressiveness proof #1: probabilistic reasoning as an (O, E, B, R) tuple.
+The ontology holds hypotheses and likelihood tables.
+Beliefs are a probability distribution.
+The revision policy applies Bayes' theorem to update beliefs given each observation.
 """
 
 from dataclasses import dataclass, replace
@@ -22,8 +22,8 @@ _HIGH_CONFIDENCE_THRESHOLD = 0.8
 class BayesOntology:
     """Bayesian ontology: hypotheses, observables, and likelihood table.
 
-    hypotheses: mutually exclusive hypothesis names (e.g. "flu", "cold").
-    observables: names of things that can be observed (e.g. "fever").
+    hypotheses: mutually exclusive hypothesis names. Example: "flu", "cold".
+    observables: names of things that can be observed. Example: "fever".
     likelihoods: P(value | hypothesis, observable). Keyed by
         (hypothesis, observable, value) -> probability.
     """
@@ -42,7 +42,7 @@ class BayesOntology:
             evidence: observations to check against this ontology.
 
         Returns:
-            True if every observation is covered; False otherwise.
+            True if every observation is covered. False otherwise.
         """
         for obs in evidence:
             found = any(

@@ -1,10 +1,9 @@
 """Meta-epistemic layer: monitors reasoning and decides how to proceed.
 
-Evaluates the pipeline trace, norm scores, ontology adequacy, and
-anomalies. Returns one of four decisions: ACCEPT, REFRAME,
-SWITCH_STRATEGY, or ESCALATE. Priority order ensures safety:
-budget exhaustion beats cycle detection beats escalation beats
-reframing beats strategy switching.
+Evaluates the pipeline trace, norm scores, ontology adequacy, and anomalies.
+Returns one of four decisions: ACCEPT, REFRAME, SWITCH_STRATEGY, or ESCALATE.
+Priority order ensures safety: budget exhaustion beats cycle detection
+beats escalation beats reframing beats strategy switching.
 """
 
 from __future__ import annotations
@@ -70,22 +69,22 @@ class MetaController:
     """Meta-epistemic controller with functional decision logic.
 
     Intentionally mutable. The meta-layer sits *outside* the pipeline's
-    immutability boundary. It observes pipeline traces (which are
-    immutable) and tracks its own cross-invocation state — the
-    intervention budget (k) and the last trigger pair for cycle
-    detection. This state cannot live inside the pipeline trace because
-    it spans multiple pipeline runs. Making monitor() return a new
-    MetaController would push bookkeeping onto every caller with no
-    correctness benefit, since the meta-layer is a singleton observer.
+    immutability boundary. It observes pipeline traces (which are immutable)
+    and tracks its own cross-invocation state. The intervention budget (k)
+    and the last trigger pair for cycle detection. This state cannot live
+    inside the pipeline trace because it spans multiple pipeline runs.
+    Making monitor() return a new MetaController would push bookkeeping
+    onto every caller with no correctness benefit. The meta-layer is a
+    singleton observer.
 
     Evaluates triggers in priority order:
-    1. Budget exhaustion — k >= K_max.
-    2. Cycle detection — same (trigger, corrective_action) pair recurring.
-    3. ESCALATE — repeated contradictions or causal_inconsistency.
-    4. REFRAME — ontology inadequate, low reliability, or paradigm_mismatch.
-    5. SWITCH_STRATEGY — high efficiency, oscillation, tool/llm disagreement,
+    1. Budget exhaustion. k >= K_max.
+    2. Cycle detection. Same (trigger, corrective_action) pair recurring.
+    3. ESCALATE. Repeated contradictions or causal_inconsistency.
+    4. REFRAME. Ontology inadequate, low reliability, or paradigm_mismatch.
+    5. SWITCH_STRATEGY. High efficiency, oscillation, tool/llm disagreement,
        or value_divergence.
-    6. ACCEPT — no triggers fired.
+    6. ACCEPT. No triggers fired.
 
     Attributes:
         thresholds: decision boundaries for all triggers.
