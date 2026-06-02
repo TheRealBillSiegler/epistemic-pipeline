@@ -17,6 +17,9 @@ classifiers = [
 ]
 dependencies = []
 
+[project.scripts]
+epc = "epistemic_pipeline.cli:main"
+
 [dependency-groups]
 dev = [
     "pytest",

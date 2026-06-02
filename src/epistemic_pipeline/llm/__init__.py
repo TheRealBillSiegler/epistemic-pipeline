@@ -9,6 +9,8 @@ from epistemic_pipeline.llm.llm_interfaces import (
     LLMInterface,
     LLMResponse,
     MockLLM,
+    MockRatingLLM,
+    RatingLLMInterface,
 )
 
 __all__ = [
@@ -16,4 +18,6 @@ __all__ = [
     "LLMInterface",
     "LLMResponse",
     "MockLLM",
+    "MockRatingLLM",
+    "RatingLLMInterface",
 ]
