@@ -218,6 +218,14 @@ uv run pytest              # run the test suite
 uv run pyright             # run the type checker
 ```
 
+Once you have a saved trace (`epistemic_pipeline.trace.dump_trace`), the `epc` CLI inspects it:
+
+```bash
+uv run epc replay trace.jsonl       # walk the trace step by step
+uv run epc diff a.jsonl b.jsonl     # show the first step where two traces diverge
+uv run epc score trace.jsonl        # score the run on reliability, efficiency, justification, power
+```
+
 ---
 
 ## Project Structure
