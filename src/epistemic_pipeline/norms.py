@@ -36,7 +36,7 @@ class NormScore:
 _JUSTIFICATION_ATOL = 1e-9
 
 
-def _beliefs_approx_equal(a: object, b: object) -> bool:
+def _beliefs_approx_equal(a: object, b: object) -> bool:  # noqa: PLR0911
     """Compare two belief objects with float tolerance.
 
     Walks dict and dataclass fields looking for float values.
@@ -59,8 +59,9 @@ def _beliefs_approx_equal(a: object, b: object) -> bool:
                 return False
         return True
     # Handle frozen dataclasses by comparing fields.
-    if hasattr(a, "__dataclass_fields__"):
-        for field_name in a.__dataclass_fields__:
+    dataclass_fields = getattr(a, "__dataclass_fields__", None)
+    if dataclass_fields is not None:
+        for field_name in dataclass_fields:
             fa = getattr(a, field_name)
             fb = getattr(b, field_name)
             if not _beliefs_approx_equal(fa, fb):
