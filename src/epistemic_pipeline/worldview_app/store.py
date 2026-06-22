@@ -4,8 +4,9 @@ Holds the four things the app reasons over:
 
 - claims: the beliefs B. A claim has a confidence in [0, 1] and a
   source_type recording where it came from (inferred / user / derived).
-- observations: the evidence E. Append-only, mirrors the Observation
-  dataclass from the core library.
+- observations: the evidence E. Append-only. Stores the Observation
+  dataclass fields except `etype` (the app does not branch on evidence
+  type yet); add that column when it does.
 - concepts: the ontology O terms. Append-only set of names.
 - evidence_links: which observation moved which claim by how much.
   Append-only. This is also the belief-drift timeline: the history of
@@ -15,9 +16,9 @@ All timestamps are caller-supplied floats (epoch seconds), never wall
 clock. The whole system is deterministic and replayable, so the store
 must never invent a value that a replay could not reproduce.
 
-ponytail: no `traces` table. Full-trace replay lives in trace.py as
-JSONL files; the drift timeline comes from evidence_links. Two concerns,
-not one table.
+Deliberate simplification: no `traces` table. Full-trace replay lives in
+trace.py as JSONL files; the drift timeline comes from evidence_links.
+Two concerns, not one table.
 """
 
 from __future__ import annotations
@@ -63,6 +64,13 @@ CREATE INDEX IF NOT EXISTS idx_links_claim ON evidence_links(claim_id, timestamp
 """
 
 
+def _check_confidence(value: float) -> None:
+    """Raise ValueError unless value is in [0, 1]."""
+    if not 0.0 <= value <= 1.0:
+        msg = f"confidence must be in [0, 1], got {value!r}"
+        raise ValueError(msg)
+
+
 class Store:
     """A SQLite-backed belief store. Owns one connection.
 
@@ -101,18 +109,23 @@ class Store:
         source_type: str,
         ts: float,
     ) -> None:
-        """Insert a claim or update its confidence if it already exists.
+        """Insert a claim, or update an existing one in place.
 
-        source_type must be one of SOURCE_TYPES.
+        On a repeat id, text, confidence, and source_type are all
+        overwritten and last_updated tracks the change. source_type must
+        be one of SOURCE_TYPES and confidence must be in [0, 1].
         """
         if source_type not in SOURCE_TYPES:
             msg = f"source_type must be one of {SOURCE_TYPES}, got {source_type!r}"
             raise ValueError(msg)
+        _check_confidence(confidence)
         self.conn.execute(
             """INSERT INTO claims (id, text, confidence, source_type, last_updated)
                VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
+                   text = excluded.text,
                    confidence = excluded.confidence,
+                   source_type = excluded.source_type,
                    last_updated = excluded.last_updated""",
             (claim_id, text, confidence, source_type, ts),
         )
@@ -124,8 +137,8 @@ class Store:
         return cur.fetchone()
 
     def claims(self) -> list[sqlite3.Row]:
-        """Return all claims, highest confidence first."""
-        cur = self.conn.execute("SELECT * FROM claims ORDER BY confidence DESC")
+        """Return all claims, highest confidence first (ties broken by id)."""
+        cur = self.conn.execute("SELECT * FROM claims ORDER BY confidence DESC, id")
         return cur.fetchall()
 
     # --- observations (the evidence E, append-only) ---
@@ -139,7 +152,11 @@ class Store:
         timestamp: float,
         modality: str | None = None,
     ) -> int:
-        """Append an observation. Returns its auto-assigned id."""
+        """Append an observation. Returns its auto-assigned id.
+
+        confidence must be in [0, 1].
+        """
+        _check_confidence(confidence)
         cur = self.conn.execute(
             """INSERT INTO observations
                (variable, value, source, modality, confidence, timestamp)
@@ -158,7 +175,11 @@ class Store:
     # --- concepts (the ontology O, append-only set) ---
 
     def add_concept(self, name: str, source_type: str) -> None:
-        """Add a concept name. No-op if it already exists."""
+        """Add a concept name. First write wins.
+
+        Re-adding an existing name keeps its original source_type: no
+        error, no update. source_type must be one of SOURCE_TYPES.
+        """
         if source_type not in SOURCE_TYPES:
             msg = f"source_type must be one of {SOURCE_TYPES}, got {source_type!r}"
             raise ValueError(msg)
@@ -198,9 +219,13 @@ class Store:
         self.conn.commit()
 
     def history(self, claim_id: str) -> list[sqlite3.Row]:
-        """Return a claim's evidence links in time order (the drift timeline)."""
+        """Return a claim's evidence links in time order (the drift timeline).
+
+        Ties on timestamp are broken by insertion order, so the timeline
+        is deterministic and replayable.
+        """
         cur = self.conn.execute(
-            "SELECT * FROM evidence_links WHERE claim_id = ? ORDER BY timestamp",
+            "SELECT * FROM evidence_links WHERE claim_id = ? ORDER BY timestamp, rowid",
             (claim_id,),
         )
         return cur.fetchall()
