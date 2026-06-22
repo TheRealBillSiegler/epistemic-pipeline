@@ -59,29 +59,6 @@ def _format_beliefs(beliefs: Any) -> str:  # noqa: ANN401
     return str(beliefs)
 
 
-def _describe_new_evidence(
-    prev_evidence: tuple[Any, ...], next_evidence: tuple[Any, ...],
-) -> str:
-    """Return a short string describing evidence added between two steps.
-
-    Args:
-        prev_evidence: evidence tuple in the earlier state.
-        next_evidence: evidence tuple in the later state.
-
-    Returns:
-        Empty string if no new evidence. Otherwise a comma-separated
-        list of new ``modality:variable=value`` entries.
-    """
-    new_items = next_evidence[len(prev_evidence):]
-    if not new_items:
-        return ""
-    parts = []
-    for obs in new_items:
-        mod = obs.modality or "obs"
-        parts.append(f"{mod}({obs.variable}={obs.value})")
-    return ", ".join(parts)
-
-
 def print_replay(
     result: PipelineResult[Any, Any], stream: TextIO | None = None,
 ) -> None:

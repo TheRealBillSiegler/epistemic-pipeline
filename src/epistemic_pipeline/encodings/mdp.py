@@ -78,7 +78,7 @@ class MDPOntology:
     terminal_states: frozenset[str] = frozenset()
     epsilon: float = 1e-6
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         states: frozenset[str],
         actions: tuple[str, ...],
@@ -220,7 +220,7 @@ class MDPProblem:
     epsilon: float = 1e-6
     max_iterations: int = 1000
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         states: frozenset[str],
         actions: tuple[str, ...],
