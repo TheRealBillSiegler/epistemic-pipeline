@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "epistemic-pipeline"
-version = "0.1.0"
+version = "1.1.0"
 description = "A general-purpose reasoning architecture: formal (O,E,B,R) state model with pluggable revision policies."
 authors = [{ name = "Bill Siegler", email = "billsiegler@outlook.com" }]
 readme = "README.md"
