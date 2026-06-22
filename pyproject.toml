@@ -17,6 +17,12 @@ classifiers = [
 ]
 dependencies = []
 
+# The core library is zero-dependency. The worldview app (a subpackage
+# of epistemic_pipeline, under epistemic_pipeline.worldview_app) needs a
+# web server; install it with `uv pip install -e ".[worldview]"`.
+[project.optional-dependencies]
+worldview = ["fastapi", "uvicorn"]
+
 [project.scripts]
 epc = "epistemic_pipeline.cli:main"
 
