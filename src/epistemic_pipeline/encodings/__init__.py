@@ -40,6 +40,12 @@ from epistemic_pipeline.encodings.strips import (
     run_strips_pipeline,
     strips_update,
 )
+from epistemic_pipeline.encodings.worldview import (
+    WorldviewBeliefs,
+    WorldviewOntology,
+    worldview_argmax,
+    worldview_update,
+)
 
 __all__ = [
     "BayesBeliefs",
@@ -60,6 +66,8 @@ __all__ = [
     "SearchOntology",
     "SearchOperator",
     "SearchProblem",
+    "WorldviewBeliefs",
+    "WorldviewOntology",
     "bayes_argmax",
     "bayes_update",
     "llm_agent_argmax",
@@ -72,4 +80,6 @@ __all__ = [
     "run_strips_pipeline",
     "search_update",
     "strips_update",
+    "worldview_argmax",
+    "worldview_update",
 ]

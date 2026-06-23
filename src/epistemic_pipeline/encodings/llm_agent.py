@@ -20,6 +20,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+from epistemic_pipeline.encodings._confidence import parse_confidence_vector
 from epistemic_pipeline.meta import MetaController
 from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
 from epistemic_pipeline.state import (
@@ -94,33 +95,6 @@ def llm_agent_argmax(beliefs: LLMAgentBeliefs) -> str:
     return max(beliefs.confidences, key=lambda h: beliefs.confidences[h])
 
 
-def _parse_confidence_vector(text: str) -> dict[str, float]:
-    """Parse a JSON object mapping hypothesis name to confidence.
-
-    Args:
-        text: a JSON string. Expected shape ``{name: float, ...}``.
-
-    Returns:
-        A dict from name to float. Empty dict if parsing fails or the
-        payload is not a JSON object.
-    """
-    try:
-        payload = json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        return {}
-    if not isinstance(payload, dict):
-        return {}
-    result: dict[str, float] = {}
-    for name, value in payload.items():
-        if not isinstance(name, str):
-            continue
-        try:
-            result[name] = float(value)
-        except (TypeError, ValueError):
-            continue
-    return result
-
-
 def llm_agent_update(
     beliefs: LLMAgentBeliefs,
     evidence: Observation,
@@ -143,7 +117,7 @@ def llm_agent_update(
     Returns:
         Updated LLMAgentBeliefs with normalized confidences.
     """
-    parsed = _parse_confidence_vector(evidence.value)
+    parsed = parse_confidence_vector(evidence.value)
     filtered = {
         name: max(0.0, value)
         for name, value in parsed.items()
@@ -371,7 +345,7 @@ def _llm_agent_test_factory(
             )
 
             # 4. Detect unknown hypotheses before applying R.
-            parsed = _parse_confidence_vector(rating.content)
+            parsed = parse_confidence_vector(rating.content)
             unknown = [
                 name for name in parsed if name not in ontology.hypotheses
             ]

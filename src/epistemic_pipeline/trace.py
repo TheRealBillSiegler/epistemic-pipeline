@@ -6,7 +6,7 @@ after the header is one state from the pipeline trace. The revision
 policy is not serialized; it is reconstructed at load time by looking
 up the encoding name in the registry.
 
-Supported encodings in v1.1: bayes, strips, mdp, llm_agent. The search
+Supported encodings: bayes, strips, mdp, llm_agent, worldview. The search
 encoding is excluded because SearchOperator carries Python callables
 that cannot be serialized without naming a global symbol; v1.2 may add
 this through importlib-based callable resolution.
@@ -41,6 +41,11 @@ from epistemic_pipeline.encodings.strips import (
     STRIPSBeliefs,
     STRIPSOntology,
     strips_update,
+)
+from epistemic_pipeline.encodings.worldview import (
+    WorldviewBeliefs,
+    WorldviewOntology,
+    worldview_update,
 )
 from epistemic_pipeline.meta import MetaDecision, MetaResult
 from epistemic_pipeline.pipeline import PipelineResult
@@ -333,6 +338,27 @@ def _deserialize_llm_agent_beliefs(
     return LLMAgentBeliefs(confidences=dict(payload["confidences"]))
 
 
+# --- Worldview ---
+
+
+def _serialize_worldview_ontology(ont: WorldviewOntology) -> dict[str, Any]:
+    return {"concepts": sorted(ont.concepts)}
+
+
+def _deserialize_worldview_ontology(payload: dict[str, Any]) -> WorldviewOntology:
+    return WorldviewOntology(concepts=frozenset(payload["concepts"]))
+
+
+def _serialize_worldview_beliefs(beliefs: WorldviewBeliefs) -> dict[str, Any]:
+    # Sort keys so the dump is byte-identical no matter how the beliefs
+    # dict was built (fresh run, store load, or direct construction).
+    return {"confidences": dict(sorted(beliefs.confidences.items()))}
+
+
+def _deserialize_worldview_beliefs(payload: dict[str, Any]) -> WorldviewBeliefs:
+    return WorldviewBeliefs(confidences=dict(payload["confidences"]))
+
+
 # --- Registry population ---
 
 register_encoding(_Encoding(
@@ -367,6 +393,14 @@ register_encoding(_Encoding(
     deserialize_beliefs=_deserialize_llm_agent_beliefs,
     revision_policy=llm_agent_update,
 ))
+register_encoding(_Encoding(
+    name="worldview",
+    serialize_ontology=_serialize_worldview_ontology,
+    deserialize_ontology=_deserialize_worldview_ontology,
+    serialize_beliefs=_serialize_worldview_beliefs,
+    deserialize_beliefs=_deserialize_worldview_beliefs,
+    revision_policy=worldview_update,
+))
 
 
 # --- Public API ---
@@ -390,6 +424,7 @@ def _detect_encoding(strategy: str) -> str:
         "astar_search": "search",
         "mdp_value_iteration": "mdp",
         "llm_agent": "llm_agent",
+        "worldview": "worldview",
     }
     if strategy not in mapping:
         msg = (
