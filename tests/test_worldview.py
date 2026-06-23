@@ -13,7 +13,7 @@ from epistemic_pipeline.encodings.worldview import (
 from epistemic_pipeline.meta import MetaController, MetaDecision
 from epistemic_pipeline.norms import score_pipeline_run
 from epistemic_pipeline.pipeline import PipelineResult
-from epistemic_pipeline.state import EpistemicState, Metadata
+from epistemic_pipeline.state import EpistemicState, EvidenceType, Metadata
 from epistemic_pipeline.trace import dump_trace, load_trace
 
 ONT = WorldviewOntology(concepts=frozenset({"c1", "c2", "c3"}))
@@ -70,6 +70,46 @@ class TestUpdate:
         obs = _vector_obs({"ghost": 0.9})
         assert worldview_update(b0, obs, ONT) is b0
 
+    def test_non_finite_values_dropped(self):
+        # +inf must not poison the distribution to NaN; it is dropped.
+        b0 = WorldviewBeliefs({})
+        b1 = worldview_update(b0, _vector_obs({"c1": float("inf"), "c2": 0.5}), ONT)
+        assert b1.confidences == {"c2": 1.0}
+        assert math.isfinite(sum(b1.confidences.values()))
+
+    def test_nan_value_dropped(self):
+        b0 = WorldviewBeliefs({})
+        b1 = worldview_update(b0, _vector_obs({"c1": float("nan"), "c2": 0.5}), ONT)
+        assert b1.confidences == {"c2": 1.0}
+
+    def test_all_non_finite_leaves_beliefs_unchanged(self):
+        b0 = WorldviewBeliefs({"c1": 1.0})
+        assert worldview_update(b0, _vector_obs({"c1": float("inf")}), ONT) is b0
+
+    def test_all_zero_vector_leaves_beliefs_unchanged(self):
+        # Non-empty filtered map of zeros: must hit the guard, not divide by zero.
+        b0 = WorldviewBeliefs({"c1": 1.0})
+        assert worldview_update(b0, _vector_obs({"c1": 0.0, "c2": 0.0}), ONT) is b0
+
+    def test_all_negative_vector_leaves_beliefs_unchanged(self):
+        b0 = WorldviewBeliefs({"c1": 1.0})
+        assert worldview_update(b0, _vector_obs({"c1": -0.5, "c2": -0.3}), ONT) is b0
+
+    def test_malformed_or_non_object_json_leaves_beliefs_unchanged(self):
+        b0 = WorldviewBeliefs({"c1": 1.0})
+        for bad in ("{not json", "[1, 2, 3]", "5"):
+            obs = dataclasses.replace(_vector_obs({"c1": 1.0}), value=bad)
+            assert worldview_update(b0, obs, ONT) is b0
+
+    def test_unrated_concepts_drop_across_documents(self):
+        # Latest document wins: concepts it omits vanish, not retained or zeroed.
+        b1 = worldview_update(
+            WorldviewBeliefs({}), _vector_obs({"c1": 0.7, "c2": 0.3}), ONT,
+        )
+        b2 = worldview_update(b1, _vector_obs({"c3": 1.0}), ONT)
+        assert set(b2.confidences) == {"c3"}
+        assert "c1" not in b2.confidences
+
 
 class TestArgmax:
     def test_picks_highest(self):
@@ -105,6 +145,13 @@ class TestDeterminism:
         b0 = WorldviewBeliefs({})
         obs = _vector_obs({"c1": 0.6, "c2": 0.4})
         assert worldview_update(b0, obs, ONT) == worldview_update(b0, obs, ONT)
+
+    def test_extraction_observation_variable_and_provenance(self):
+        obs = extraction_observation({"c1": 1.0}, 0.0, "m", "h", 1)
+        # The magic string adequate()/worldview_update() branch on.
+        assert obs.variable == "confidence_vector"
+        assert obs.etype == EvidenceType.REPORT
+        assert obs.modality == "llm"
 
 
 def _two_step_result():
@@ -142,6 +189,26 @@ class TestPowerNormWiring:
         assert result.decision == MetaDecision.REFRAME
         assert result.details["trigger"] == "ontology_inadequate"
 
+    def test_all_known_concepts_accept(self):
+        # Contrapositive: all-known concepts -> power True -> ACCEPT.
+        b0 = WorldviewBeliefs({})
+        obs = _vector_obs({"c1": 0.7, "c2": 0.3})
+        b1 = worldview_update(b0, obs, ONT)
+        meta = Metadata(strategy="worldview")
+        trace = (
+            EpistemicState(ONT, (), b0, worldview_update, meta),
+            EpistemicState(ONT, (obs,), b1, worldview_update, meta),
+        )
+        score = score_pipeline_run(
+            trace,
+            ground_truth="c1",
+            belief_argmax=worldview_argmax,
+            ontology_adequate=lambda o, e: o.adequate(e),
+        )
+        assert score.power is True
+        result = MetaController().monitor(trace, score, ONT, "worldview", ())
+        assert result.decision == MetaDecision.ACCEPT
+
 
 class TestTraceRoundTrip:
     def test_dump_load_round_trip(self, tmp_path):
@@ -162,6 +229,14 @@ class TestTraceRoundTrip:
         b = tmp_path / "b.jsonl"
         dump_trace(_two_step_result(), a)
         dump_trace(_two_step_result(), b)
+        assert a.read_bytes() == b.read_bytes()
+
+    def test_dump_load_dump_is_byte_identical(self, tmp_path):
+        # Determinism across the load path: re-dumping a loaded trace matches.
+        a = tmp_path / "a.jsonl"
+        b = tmp_path / "b.jsonl"
+        dump_trace(_two_step_result(), a)
+        dump_trace(load_trace(a), b)
         assert a.read_bytes() == b.read_bytes()
 
     def test_loaded_policy_still_revises(self, tmp_path):

@@ -350,7 +350,9 @@ def _deserialize_worldview_ontology(payload: dict[str, Any]) -> WorldviewOntolog
 
 
 def _serialize_worldview_beliefs(beliefs: WorldviewBeliefs) -> dict[str, Any]:
-    return {"confidences": dict(beliefs.confidences)}
+    # Sort keys so the dump is byte-identical no matter how the beliefs
+    # dict was built (fresh run, store load, or direct construction).
+    return {"confidences": dict(sorted(beliefs.confidences.items()))}
 
 
 def _deserialize_worldview_beliefs(payload: dict[str, Any]) -> WorldviewBeliefs:
