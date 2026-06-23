@@ -179,9 +179,9 @@ The discount operator is clean *given* a reliability number. Producing that numb
 
 Cumulative fusion assumes independent sources and drives `u → 0`. Ten copies of one claim then manufacture false confidence. The operator, not the representation, encodes independence: use **averaging/weighted** fusion for dependent sources, and **deduplicate** before fusing. The unsolved residue: real sources are *partially* correlated (retweets, shared upstream), and no retrieved source gives a clean operator for that middle case. Mitigation is engineering judgment: dedupe, cluster, and default to averaging when independence is unproven. Treat this as the primary failure surface for any social-media ingestion.
 
-### 7.3 The unadjudicated critique
+### 7.3 The foundational critique
 
-Dezert & Tchamova, *"Can we trust subjective logic for information fusion?"*, attacks SL's fusion rule and the opinion-to-Beta mapping at the foundations. We have **not** retrieved and resolved it. It is a hard gate, not a footnote ([§10](#10-gates-before-production)).
+Dezert & Tchamova, *"Can we trust subjective logic for information fusion?"* (Fusion 2014), attacks SL's fusion rule and the opinion-to-Beta mapping at the foundations. **Adjudicated** in a separate memo: [Dezert & Tchamova adjudication](../../research/2026-06-23-dezert-tchamova-sl-critique-adjudication.md). Verdict: it does not block this design — we reject Dempster's rule on independent grounds, use the corrected fusion operators, and treat the opinion-to-Beta mapping as a parameterization validated by calibration rather than asserted truth. The primary full text was auth-walled at adjudication time, so the gate is **monitored, not closed**: confirm against the primary that the fusion-rule objection targets the superseded consensus operator ([§10](#10-gates-before-production)).
 
 ---
 
@@ -241,7 +241,7 @@ Do **not** ship this as "trustworthy worldview updates" until:
 1. **Calibration is measured and acceptable** ([§8](#8-validation-how-we-prove-trust-empirically)). An uncalibrated updater is not trustworthy regardless of its math.
 2. **`P_R` is grounded in something auditable** ([§7.1](#71-grounding-the-credibility-number-the-biggest-open-risk)), or credibility weighting is explicitly disabled and labeled as such.
 3. **The meme-farm test passes** ([§7.2](#72-correlated-and-duplicate-sources)).
-4. **Dezert & Tchamova is read and adjudicated** ([§7.3](#73-the-unadjudicated-critique)). If it undermines the cumulative/averaging operators specifically, revisit [§4.2](#42-r--revision-as-discounted-accumulation).
+4. **Dezert & Tchamova is adjudicated** ([memo](../../research/2026-06-23-dezert-tchamova-sl-critique-adjudication.md), [§7.3](#73-the-foundational-critique)) — done, status *monitored*. Re-raise to blocking only if the primary shows a counterexample against the *corrected* cumulative/averaging operators that yields miscalibrated belief; then revisit [§4.2](#42-r--revision-as-discounted-accumulation).
 
 Until these clear, the encoding is a sound, well-grounded *research artifact* — the right shape, honestly bounded — not a finished product that "tells you what to believe."
 
