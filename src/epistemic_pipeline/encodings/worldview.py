@@ -1,38 +1,46 @@
-"""Worldview encoding: revise beliefs over a personal corpus.
+"""Worldview encoding: revise beliefs over a personal corpus, in Subjective Logic.
 
 Sixth expressiveness use: a reader's worldview as an (O, E, B, R) tuple.
 
 - O (ontology): the set of *concepts* the corpus knows about. Concepts
-  are claim identifiers — stable handles for the things the reader holds
+  are claim identifiers -- stable handles for the things the reader holds
   beliefs about. O grows as new documents introduce new concepts.
 - E (evidence): recorded LLM confidence vectors, one per document the
   reader takes in. Each is an Observation whose value is a JSON object
   mapping concept -> confidence in [0, 1].
-- B (beliefs): the reader's current confidence in each concept.
-- R (revision): parse the latest confidence vector, keep the concepts O
-  knows, and renormalize so they sum to 1.0. Concepts the latest vector
-  does not mention are dropped — not carried forward, not zeroed.
+- B (beliefs): one Subjective-Logic ``Opinion`` per concept, stored as
+  evidence counts. Independent per concept; no shared normalization.
+- R (revision): turn the latest confidence vector into evidence,
+  discount it by source reliability, and *accumulate* it into each
+  mentioned concept's opinion. Concepts the vector omits are carried
+  forward unchanged.
 
-R ignores the prior. The posterior is always the normalized latest
-vector, for every prior. The empty-prior case is not special — it just
-makes "posterior equals likelihood" obvious, so a brand-new reader's
-first document produces a complete result with no setup step. This
-mirrors the LLM-agent renormalize (not the prior-dependent Bayesian
-update); the worldview difference is that O (and thus the claim set)
-grows from the documents themselves.
+This replaces the v1.1 "renormalize the latest vector" revision, which
+forgot any concept a new document failed to mention and could not tell "I
+have no evidence" from "the evidence is balanced". An Opinion carries an
+explicit uncertainty mass, so a vacuous concept reports `u = 1` (and
+projects to its base rate) instead of a fabricated 0.5.
+
+How a confidence becomes evidence (the mapping Unit 1 left to the
+encoding): one document contributes ``EVIDENCE_PER_DOC`` units of
+evidence about each concept it rates, split for/against by the stated
+confidence ``p`` -- ``Opinion(E*p, E*(1-p))`` -- then scaled by the
+source's reliability. With ``E = 2`` and ``W = 2``, one fully-confident
+source at reliability 1.0 yields ``b = u = 0.5``: believed, but still
+uncertain after a single source. This is the same mechanism as the
+design's worked example (§4.3); that example additionally applies a
+``P_R = 0.95`` reliability discount, which this version disables, so its
+numbers are ``b ~ 0.49`` / ``u ~ 0.51`` rather than 0.5 / 0.5.
+
+Source reliability is fixed at ``DEFAULT_RELIABILITY`` for now: credibility
+weighting is disabled and labelled as such until it can be grounded in
+something auditable (design Unit 3). At reliability 1.0 the discount is a
+no-op, so belief tracks evidence directly and nothing fakes credibility.
 
 The LLM is non-deterministic, but R is pure: the LLM's confidence vector
 is recorded as an Observation before R runs, and R only ever reads from
-that recorded text. Replay is deterministic given the recorded trace.
-
-ponytail: R normalizes claims into one distribution per update,
-mirroring the proven LLM-agent update. This holds for what
-worldview_update returns, not for the persisted store. The store keeps
-one belief per concept and never deletes, so across documents that rate
-different concepts its confidences can sum past 1.0 -- by design, not a
-bug. If independent per-claim beliefs (two claims both true at once)
-start to matter, switch B to per-claim Bernoulli and drop the
-renormalize.
+that recorded text. Cumulative fusion is count addition, so replaying the
+recorded evidence trail reproduces beliefs exactly.
 """
 
 from __future__ import annotations
@@ -41,9 +49,25 @@ import json
 from dataclasses import dataclass
 
 from epistemic_pipeline.encodings._confidence import parse_confidence_vector
+from epistemic_pipeline.encodings._subjective_logic import (
+    Opinion,
+    discount,
+    fuse_cumulative,
+)
 from epistemic_pipeline.state import EvidenceType, Observation
 
-_FLOAT_TOLERANCE = 1e-9
+# Evidence units one document contributes about each concept it rates.
+# E = 2 pairs with the SL prior weight W = 2: one fully-confident source
+# leaves belief and uncertainty equal (b = u = 0.5).
+EVIDENCE_PER_DOC = 2.0
+
+# Source reliability used by R. 1.0 = credibility weighting disabled
+# (the discount is a no-op). Grounding this per-source is design Unit 3.
+DEFAULT_RELIABILITY = 1.0
+
+# Base rate for a concept with no evidence yet. 0.5 = a vacuous opinion
+# projects to one-half, the neutral prior.
+DEFAULT_BASE_RATE = 0.5
 
 
 @dataclass(frozen=True)
@@ -85,22 +109,38 @@ class WorldviewOntology:
 
 @dataclass(frozen=True)
 class WorldviewBeliefs:
-    """Confidence distribution over concepts.
+    """One Subjective-Logic opinion per concept.
 
-    confidences: maps each concept (claim id) to a confidence in [0, 1].
-    Convention (not enforced): producers keep the values summing to 1.0
-    within float tolerance, or leave the map empty (a brand-new reader
-    with no beliefs yet).
+    opinions: maps each concept (claim id) to its ``Opinion``. A concept
+        with no opinion yet is treated as vacuous (``Opinion(0, 0)``):
+        uncertainty 1, projecting to its base rate. Opinions are
+        independent -- they do not sum to anything.
     """
 
-    confidences: dict[str, float]
+    opinions: dict[str, Opinion]
 
 
 def worldview_argmax(beliefs: WorldviewBeliefs) -> str:
-    """Return the concept with the highest confidence (empty string if none)."""
-    if not beliefs.confidences:
+    """Return the concept with the highest projected probability.
+
+    Ranks by projected probability ``P`` (belief plus base-rate-weighted
+    uncertainty), which is the quantity calibration scores against. Empty
+    string if there are no opinions.
+    """
+    if not beliefs.opinions:
         return ""
-    return max(beliefs.confidences, key=lambda c: beliefs.confidences[c])
+    return max(beliefs.opinions, key=lambda c: beliefs.opinions[c].projected)
+
+
+def _evidence_increment(confidence: float) -> Opinion:
+    """Turn one stated confidence into a discounted evidence increment.
+
+    Splits ``EVIDENCE_PER_DOC`` units for/against by the confidence
+    (clamped to [0, 1]), then scales by ``DEFAULT_RELIABILITY``.
+    """
+    p = min(1.0, max(0.0, confidence))
+    raw = Opinion(EVIDENCE_PER_DOC * p, EVIDENCE_PER_DOC * (1.0 - p), DEFAULT_BASE_RATE)
+    return discount(raw, DEFAULT_RELIABILITY)
 
 
 def worldview_update(
@@ -108,43 +148,41 @@ def worldview_update(
     evidence: Observation,
     ontology: WorldviewOntology,
 ) -> WorldviewBeliefs:
-    """Apply a recorded confidence vector to current beliefs: R(B, e, O) -> B'.
+    """Accumulate a recorded confidence vector into beliefs: R(B, e, O) -> B'.
 
-    The LLM has already rated each concept given the new document; that
-    rating is recorded in ``evidence.value`` as JSON. R parses it, drops
-    concepts O does not know plus negative or non-finite values, and
-    renormalizes the rest to sum to 1.0. R ignores the prior: the
-    posterior is always the normalized latest vector. Concepts the vector
-    omits are dropped, so beliefs hold only the latest document's rated
-    concepts.
+    For each concept the vector rates that O knows, turn the confidence
+    into a discounted evidence increment and fuse it (cumulatively, i.e.
+    by adding counts) into that concept's opinion. Every other concept is
+    carried forward unchanged -- there is no renormalize and no amnesia.
 
-    Only confidence-vector observations carry a rating; any other
-    observation (a raw document chunk, say) leaves beliefs unchanged. If
-    nothing survives filtering, beliefs are returned unchanged.
+    Only confidence-vector observations carry evidence; any other
+    observation (a raw document chunk, say) leaves beliefs unchanged.
 
     Args:
-        beliefs: current confidence distribution over concepts.
+        beliefs: current opinions, one per concept.
         evidence: the recorded observation. Its ``value`` is the LLM's
             JSON confidence vector when ``variable == "confidence_vector"``.
         ontology: the known concept set used to filter the vector.
 
     Returns:
-        Updated WorldviewBeliefs with normalized confidences.
+        Updated WorldviewBeliefs. Unmentioned concepts are unchanged.
     """
     if evidence.variable != "confidence_vector":
         return beliefs
     parsed = parse_confidence_vector(evidence.value)
-    filtered = {
-        name: max(0.0, value)
-        for name, value in parsed.items()
+    updates = {
+        name: confidence
+        for name, confidence in parsed.items()
         if name in ontology.concepts
     }
-    total = sum(filtered.values())
-    if total <= _FLOAT_TOLERANCE:
+    if not updates:
         return beliefs
-    return WorldviewBeliefs(
-        confidences={name: value / total for name, value in filtered.items()},
-    )
+
+    new_opinions = dict(beliefs.opinions)
+    for name, confidence in updates.items():
+        prior = new_opinions.get(name, Opinion(0.0, 0.0, DEFAULT_BASE_RATE))
+        new_opinions[name] = fuse_cumulative([prior, _evidence_increment(confidence)])
+    return WorldviewBeliefs(opinions=new_opinions)
 
 
 def extraction_observation(
