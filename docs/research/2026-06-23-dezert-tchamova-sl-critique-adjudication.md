@@ -88,6 +88,14 @@ In other words, the design was already built on the conservative side of every p
 
 ---
 
+## Update (2026-06-23) — retrieval and recency pass
+
+A later retrieval pass reported obtaining the Dezert 2014 primary (two md5-distinct downloads) and confirmed by text search that the fusion critique targets the **consensus operator**: the fusion section is titled "SL Consensus rule," the strings "CBF"/"ABF"/"cumulative" do not appear, and the paper contains **no calibration counterexample of any kind**. Treat this as **corroborating but unreplicated** — earlier passes were auth-walled, and the broader claim that the critique cannot touch the *corrected* CBF/ABF stays a chronological inference (the corrected operators postdate the paper).
+
+A 2019–2025 recency sweep found nothing that supersedes the corrected operators and nothing that re-runs the critique against them. The conservative framing above does not depend on the retrieval, because the system stakes trust on calibration, not on the mapping being true. **Gate stays monitored.** Full operator-decision record: [SL operator decisions](2026-06-23-sl-operator-decisions-research.md).
+
+---
+
 ## Sources
 
 - Dezert, Tchamova, Han, Tacnet, *"Can we trust subjective logic for information fusion?"*, Fusion 2014 — IEEE Xplore doc 6916194; HAL `hal-01070401` (primary; **not retrieved — auth-walled**).

@@ -83,7 +83,7 @@ Two candidates survive: **Beta/Dirichlet** and **SL**. SL opinions are bijective
 
 - **(a)** belief is a function of accumulated pseudo-counts `(r, s)`; more evidence → lower `u`, firmer belief.
 - **(b)** the uncertainty mass `u` is an explicit coordinate. Beta encodes the same information *implicitly* as concentration; SL surfaces it as a first-class number, which is exactly what auditability and the trust commitment ([§2](#2-the-trust-commitment-read-this-first)) require.
-- **(c)** the trust-discounting operator scales a source's belief mass by reliability `P_R` and routes the remainder into `u` — closed-form.
+- **(c)** the trust-discounting operator scales a source's *evidence counts* by reliability `P_R` and routes the lost evidence into `u` — closed-form. This is Evidence-Based Subjective Logic's evidence-scaling discount (Škorić et al., arXiv:1402.3319), **not** the belief-mass form `b' = P_R·b`; the belief-mass form has a documented pathology — a trusted high-evidence source's evidence can vanish — that evidence-scaling avoids.
 - **(d)** accumulation is additive, so a document silent on a concept contributes nothing and the concept is carried forward unchanged.
 - **(e)** disbelief `d` is its own coordinate.
 
@@ -129,7 +129,7 @@ Why store counts `(r, s)` rather than the tuple `(b, d, u)`? Counts are the natu
 `R(B, e, O) → B'` does four steps, all closed-form:
 
 1. **Parse** the recorded confidence vector from `e` (the existing parser; unchanged trust boundary — the LLM already ran and its output is recorded as an Observation).
-2. **Discount** by source credibility. Read the source's reliability `P_R ∈ [0, 1]` (from the observation's provenance — see [§7.1](#71-grounding-the-credibility-number-the-biggest-open-risk)). Scale the evidence this document contributes by `P_R`. A meme at `P_R ≈ 0` contributes almost nothing; a replicated study at `P_R ≈ 1` contributes fully. Discounted mass becomes uncertainty, not false confidence (use the multinomial discount form — research F3 caveat).
+2. **Discount** by source credibility. Read the source's reliability `P_R ∈ [0, 1]` (from the observation's provenance — see [§7.1](#71-grounding-the-credibility-number-the-biggest-open-risk)). Scale the evidence this document contributes by `P_R`. A meme at `P_R ≈ 0` contributes almost nothing; a replicated study at `P_R ≈ 1` contributes fully. Discounted evidence becomes uncertainty, not false confidence (evidence/count scaling — EBSL's evidence-scaling operator, Škorić et al. arXiv:1402.3319; non-associative but right-distributive over fusion, and the form the code ships).
 3. **Fuse** the discounted evidence into each mentioned concept's counts. Default operator: **cumulative** fusion (addition of counts) for independent sources; **averaging** fusion when independence is unproven ([§7.2](#72-correlated-and-duplicate-sources)).
 4. **Carry forward** every concept the document did *not* mention, unchanged. (Falls out of step 3: no contribution, no change.)
 
@@ -181,7 +181,7 @@ Cumulative fusion assumes independent sources and drives `u → 0`. Ten copies o
 
 ### 7.3 The foundational critique
 
-Dezert & Tchamova, *"Can we trust subjective logic for information fusion?"* (Fusion 2014), attacks SL's fusion rule and the opinion-to-Beta mapping at the foundations. **Adjudicated** in a separate memo: [Dezert & Tchamova adjudication](../../research/2026-06-23-dezert-tchamova-sl-critique-adjudication.md). Verdict: it does not block this design — we reject Dempster's rule on independent grounds, use the corrected fusion operators, and treat the opinion-to-Beta mapping as a parameterization validated by calibration rather than asserted truth. The primary full text was auth-walled at adjudication time, so the gate is **monitored, not closed**: confirm against the primary that the fusion-rule objection targets the superseded consensus operator ([§10](#10-gates-before-production)).
+Dezert & Tchamova, *"Can we trust subjective logic for information fusion?"* (Fusion 2014), attacks SL's fusion rule and the opinion-to-Beta mapping at the foundations. **Adjudicated** in a separate memo: [Dezert & Tchamova adjudication](../../research/2026-06-23-dezert-tchamova-sl-critique-adjudication.md). Verdict: it does not block this design — we reject Dempster's rule on independent grounds, use the corrected fusion operators, and treat the opinion-to-Beta mapping as a parameterization validated by calibration rather than asserted truth. The primary full text was auth-walled at adjudication time, so the gate is **monitored, not closed**: confirm against the primary that the fusion-rule objection targets the superseded consensus operator ([§10](#10-gates-before-production)). A later retrieval and 2019–2025 recency pass corroborated this (consensus-operator target; no calibration counterexample) but the retrieval is **unreplicated**, so the gate stays monitored. See [SL operator decisions](../../research/2026-06-23-sl-operator-decisions-research.md).
 
 ---
 
