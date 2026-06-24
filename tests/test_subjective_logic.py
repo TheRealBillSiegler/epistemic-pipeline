@@ -1,5 +1,6 @@
 """Tests for the Subjective Logic math module (SL Unit 1, #17)."""
 
+import itertools
 import math
 
 import pytest
@@ -43,6 +44,11 @@ class TestOpinion:
         with pytest.raises(ValueError, match="counts must be >= 0"):
             Opinion(-1, 0)
 
+    @pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+    def test_non_finite_count_rejected(self, bad):
+        with pytest.raises(ValueError, match="finite"):
+            Opinion(bad, 0)
+
     def test_base_rate_out_of_range_rejected(self):
         with pytest.raises(ValueError, match="base_rate"):
             Opinion(1, 1, base_rate=1.5)
@@ -55,10 +61,10 @@ class TestCumulativeFusion:
         assert fused.s == 1
 
     def test_order_independent(self):
+        # Integer counts sum exactly, so every permutation must be identical.
         ops = [Opinion(1, 0), Opinion(0, 2), Opinion(3, 1), Opinion(2, 2)]
-        forward = fuse_cumulative(ops)
-        backward = fuse_cumulative(list(reversed(ops)))
-        assert forward == backward
+        results = [fuse_cumulative(list(p)) for p in itertools.permutations(ops)]
+        assert all(r == results[0] for r in results)
 
     def test_collapses_uncertainty_with_repetition(self):
         one = Opinion(2, 0)
@@ -68,6 +74,18 @@ class TestCumulativeFusion:
     def test_single_opinion_unchanged(self):
         op = Opinion(2, 3)
         assert fuse_cumulative([op]) == op
+
+    def test_preserves_shared_base_rate(self):
+        fused = fuse_cumulative(
+            [Opinion(2, 0, base_rate=0.3), Opinion(1, 0, base_rate=0.3)]
+        )
+        assert fused.base_rate == 0.3
+
+    def test_mismatched_base_rate_rejected(self):
+        with pytest.raises(ValueError, match="different base rates"):
+            fuse_cumulative(
+                [Opinion(1, 0, base_rate=0.3), Opinion(0, 1, base_rate=0.7)]
+            )
 
     def test_empty_rejected(self):
         with pytest.raises(ValueError, match="empty"):
@@ -87,6 +105,20 @@ class TestAveragingFusion:
         assert avg.r == pytest.approx(2.0)
         assert avg.s == pytest.approx(1.0)
 
+    def test_fractional_average(self):
+        # Catches a future integer-truncation bug in the mean.
+        avg = fuse_averaging([Opinion(1, 0), Opinion(0, 1), Opinion(1, 1)])
+        assert avg.r == pytest.approx(2 / 3)
+        assert avg.s == pytest.approx(2 / 3)
+
+    def test_single_opinion_unchanged(self):
+        op = Opinion(2, 3)
+        assert fuse_averaging([op]) == op
+
+    def test_mismatched_base_rate_rejected(self):
+        with pytest.raises(ValueError, match="different base rates"):
+            fuse_averaging([Opinion(1, 0, base_rate=0.3), Opinion(0, 1, base_rate=0.7)])
+
     def test_empty_rejected(self):
         with pytest.raises(ValueError, match="empty"):
             fuse_averaging([])
@@ -102,6 +134,9 @@ class TestDiscount:
     def test_full_reliability_unchanged(self):
         op = Opinion(5, 3)
         assert discount(op, 1.0) == op
+
+    def test_preserves_base_rate(self):
+        assert discount(Opinion(5, 3, base_rate=0.7), 0.5).base_rate == 0.7
 
     def test_partial_reliability_raises_uncertainty(self):
         op = Opinion(4, 4)
@@ -120,7 +155,8 @@ def test_meme_farm_scenario():
     """Cumulative collapses under duplicates; averaging holds the line."""
     meme = Opinion(1, 0)  # one low-credibility claim
     farm = [meme] * 50
-    assert fuse_cumulative(farm).uncertainty < 0.05  # manufactured confidence
+    # 50 counts vs W=2: u = 2/52. Pin it, not just "small".
+    assert fuse_cumulative(farm).uncertainty == pytest.approx(2 / 52)
     assert fuse_averaging(farm).uncertainty == pytest.approx(meme.uncertainty)
 
 

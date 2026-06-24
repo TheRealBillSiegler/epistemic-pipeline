@@ -10,19 +10,18 @@ stored. With non-informative prior weight ``W = 2``:
     u = W / (r + s + W)
     P = b + base_rate * u      # projected probability
 
-Storing counts instead of ``(b, d, u)`` makes the update both trivial and
-robust: cumulative fusion is just count addition, which is associative
-and order-independent, so the division-by-zero corner cases of the
-pairwise ``(b, d, u)`` fusion formulas never arise. This is the
-correction the design's gate condition asks for, obtained by
-construction rather than by patching the pairwise forms.
+Why store counts, not ``(b, d, u)``? The update stays trivial and robust.
+Cumulative fusion becomes plain count addition. Addition is associative
+and order-independent. So the division-by-zero corners of the pairwise
+``(b, d, u)`` fusion formulas never arise. The design's gate condition
+asks for exactly this correction, and we get it by construction.
 
-The opinion-to-Beta mapping (an Opinion's counts are the
-``Beta(r + 1, s + 1)`` pseudo-counts) is treated here as a
-*parameterization* whose worth is judged by calibration downstream, not
-as a proven isomorphism of belief. ``W = 2`` is the binary-frame
-convention; each claim is its own independent binomial, so the
-convention stays exact.
+An Opinion's counts are the ``Beta(r + 1, s + 1)`` pseudo-counts. That
+Beta's mean equals the projected probability ``P`` at base rate 0.5 -- not
+the belief ``b``. We treat this mapping as a *parameterization*, judged by
+calibration downstream, not as a proven isomorphism of belief. ``W = 2``
+is the binary-frame convention. Each claim is its own independent
+binomial, so the convention stays exact.
 
 This module is pure math. How an LLM confidence becomes evidence counts
 is the worldview encoding's job, not this module's.
@@ -30,6 +29,7 @@ is the worldview encoding's job, not this module's.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -58,7 +58,10 @@ class Opinion:
     base_rate: float = 0.5
 
     def __post_init__(self) -> None:
-        """Reject negative counts or an out-of-range base rate."""
+        """Reject non-finite or negative counts, or an out-of-range base rate."""
+        if not (math.isfinite(self.r) and math.isfinite(self.s)):
+            msg = f"counts must be finite, got r={self.r}, s={self.s}"
+            raise ValueError(msg)
         if self.r < 0 or self.s < 0:
             msg = f"counts must be >= 0, got r={self.r}, s={self.s}"
             raise ValueError(msg)
@@ -93,6 +96,13 @@ def _check_nonempty(opinions: Sequence[Opinion]) -> None:
         raise ValueError(msg)
 
 
+def _check_same_base_rate(opinions: Sequence[Opinion]) -> None:
+    """Fusion keeps the first base rate, so a mismatch is a silent error."""
+    if len({o.base_rate for o in opinions}) > 1:
+        msg = "cannot fuse opinions with different base rates"
+        raise ValueError(msg)
+
+
 def fuse_cumulative(opinions: Sequence[Opinion]) -> Opinion:
     """Fuse independent opinions by accumulating evidence (count addition).
 
@@ -106,16 +116,17 @@ def fuse_cumulative(opinions: Sequence[Opinion]) -> Opinion:
     ``fuse_averaging`` when independence is unproven.
 
     Args:
-        opinions: one or more opinions about the *same* claim (they share
-            a base rate; the first operand's base rate is kept).
+        opinions: one or more opinions about the *same* claim. They must
+            share a base rate; the first operand's base rate is kept.
 
     Returns:
         The accumulated opinion.
 
     Raises:
-        ValueError: if ``opinions`` is empty.
+        ValueError: if ``opinions`` is empty or the base rates disagree.
     """
     _check_nonempty(opinions)
+    _check_same_base_rate(opinions)
     return Opinion(
         r=sum(o.r for o in opinions),
         s=sum(o.s for o in opinions),
@@ -126,21 +137,28 @@ def fuse_cumulative(opinions: Sequence[Opinion]) -> Opinion:
 def fuse_averaging(opinions: Sequence[Opinion]) -> Opinion:
     """Fuse dependent opinions by averaging evidence counts.
 
-    Averaging fusion is the right operator when sources are *not*
-    independent (duplicates, retweets, shared upstream): N copies of one
-    claim count as one, so uncertainty does not collapse. This is the
-    defense against a manufactured-consensus "meme farm".
+    Use this when sources are *not* independent (duplicates, retweets,
+    shared upstream). N copies of one claim count as one, so uncertainty
+    does not collapse. That is the defense against a manufactured-consensus
+    "meme farm".
+
+    Note: this is the mean of evidence counts -- a duplicate-collapsing
+    heuristic, not the canonical Subjective Logic averaging belief fusion
+    (ABF) operator. ABF weights sources by their certainty; the two agree
+    only when sources carry equal evidence.
 
     Args:
-        opinions: one or more opinions about the same claim.
+        opinions: one or more opinions about the same claim. They must
+            share a base rate; the first operand's base rate is kept.
 
     Returns:
         The averaged opinion.
 
     Raises:
-        ValueError: if ``opinions`` is empty.
+        ValueError: if ``opinions`` is empty or the base rates disagree.
     """
     _check_nonempty(opinions)
+    _check_same_base_rate(opinions)
     n = len(opinions)
     return Opinion(
         r=sum(o.r for o in opinions) / n,
@@ -157,6 +175,11 @@ def discount(opinion: Opinion, reliability: float) -> Opinion:
     becomes uncertainty, not false confidence -- at reliability 0 the
     opinion goes fully vacuous (the source is ignored), at reliability 1
     it is unchanged.
+
+    Note: this scales the evidence counts, not the belief mass. It is not
+    the canonical trust-discount ``b' = P_R * b``; the two agree only at
+    reliability 0 and 1. Scaling counts keeps discounting associative with
+    fusion.
 
     Args:
         opinion: the evidence a source contributes.
