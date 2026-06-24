@@ -254,6 +254,27 @@ class TestNoteIngester:
         with pytest.raises(IndexError):
             ing.ingest("note.md", "v2", ts=3.0, seed=0)  # retried, not skipped
 
+    def test_unparseable_response_is_retried_not_marked_seen(self, store):
+        # Issue #22: a non-object LLM response (here a JSON array) parses to
+        # nothing under the lenient parser, so it used to be indistinguishable
+        # from "rated nothing" -- the note got marked seen and silently dropped.
+        # It must now raise, leaving the note un-seen for a real retry.
+        llm = MockRatingLLM(
+            {},
+            confidence_ratings=[
+                LLMResponse("[1, 2, 3]", 1.0),
+                LLMResponse(json.dumps({"A": 1.0}), 1.0),
+            ],
+        )
+        ing = NoteIngester(store, llm, "q", model_id="m")
+        with pytest.raises(ValueError, match="confidence vector"):
+            ing.ingest("note.md", "body", ts=1.0, seed=0)
+        # The same content is not deduped: it reaches the LLM again, and now
+        # that the model answers with a real object, the rating lands.
+        result = ing.ingest("note.md", "body", ts=2.0, seed=0)
+        assert result == {"A": pytest.approx(0.75)}
+        assert store.has_concept("A")
+
 
 def test_all_three_paths_share_one_store(store):
     author_claim(store, "user claim", 0.8, ts=1.0)
