@@ -120,7 +120,11 @@ def ingest_rating(  # noqa: PLR0913
     if not updated:
         return {}
     obs_id = store.add_observation(
-        obs.variable, obs.value, obs.source, obs.confidence, obs.timestamp,
+        obs.variable,
+        obs.value,
+        obs.source,
+        obs.confidence,
+        obs.timestamp,
         modality=obs.modality,
     )
     for claim, conf in updated.items():

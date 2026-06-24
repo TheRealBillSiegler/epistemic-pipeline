@@ -46,7 +46,13 @@ class TestIngestDocument:
     def test_inferred_claims_persisted_and_normalized(self, store):
         llm = _llm({"A": 0.6, "B": 0.2})
         posterior = ingest_document(
-            store, llm, "q", "doc text", ts=1.0, seed=0, model_id="m",
+            store,
+            llm,
+            "q",
+            "doc text",
+            ts=1.0,
+            seed=0,
+            model_id="m",
         )
         # 0.6 / 0.8 = 0.75, 0.2 / 0.8 = 0.25
         assert posterior["A"] == pytest.approx(0.75)
@@ -69,7 +75,13 @@ class TestIngestDocument:
         # The empty-prior path: no setup, one doc yields usable beliefs.
         llm = _llm({"claim x": 0.9, "claim y": 0.1})
         posterior = ingest_document(
-            store, llm, "q", "d", ts=1.0, seed=0, model_id="m",
+            store,
+            llm,
+            "q",
+            "d",
+            ts=1.0,
+            seed=0,
+            model_id="m",
         )
         assert sum(posterior.values()) == pytest.approx(1.0)
         assert store.get_claim("claim x")["confidence"] == pytest.approx(0.9)
@@ -97,7 +109,13 @@ class TestIngestDocument:
         # observe the unrelated claim it never mentioned.
         author_claim(store, "user claim", 0.8, ts=1.0)
         result = ingest_document(
-            store, _llm({"unrated": 0.0}), "q", "d", ts=2.0, seed=0, model_id="m",
+            store,
+            _llm({"unrated": 0.0}),
+            "q",
+            "d",
+            ts=2.0,
+            seed=0,
+            model_id="m",
         )
         assert result == {}
         uc = store.get_claim("user claim")
@@ -145,10 +163,14 @@ class TestNoteIngester:
 
 def test_all_three_paths_share_one_store(store):
     author_claim(store, "user claim", 0.8, ts=1.0)
-    ingest_document(store, _llm({"inferred claim": 1.0}), "q", "d",
-                    ts=2.0, seed=0, model_id="m")
+    ingest_document(
+        store, _llm({"inferred claim": 1.0}), "q", "d", ts=2.0, seed=0, model_id="m"
+    )
     NoteIngester(store, _llm({"derived claim": 1.0}), "q", model_id="m").ingest(
-        "n.md", "body", ts=3.0, seed=0,
+        "n.md",
+        "body",
+        ts=3.0,
+        seed=0,
     )
     by_source = {r["id"]: r["source_type"] for r in store.claims()}
     assert by_source == {
@@ -162,8 +184,9 @@ def test_same_inputs_produce_same_stored_beliefs():
     # Determinism: two fresh stores, identical inputs -> identical beliefs.
     def run():
         s = Store(":memory:")
-        ingest_document(s, _llm({"A": 0.6, "B": 0.4}), "q", "doc",
-                        ts=1.0, seed=0, model_id="m")
+        ingest_document(
+            s, _llm({"A": 0.6, "B": 0.4}), "q", "doc", ts=1.0, seed=0, model_id="m"
+        )
         result = {r["id"]: r["confidence"] for r in s.claims()}
         sources = {r["source"] for r in s.observations()}
         s.close()
