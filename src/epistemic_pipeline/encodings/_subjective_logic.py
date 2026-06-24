@@ -10,18 +10,20 @@ stored. With non-informative prior weight ``W = 2``:
     u = W / (r + s + W)
     P = b + base_rate * u      # projected probability
 
-Why store counts, not ``(b, d, u)``? The update stays trivial and robust.
-Cumulative fusion becomes plain count addition. Addition is associative
-and order-independent. So the division-by-zero corners of the pairwise
-``(b, d, u)`` fusion formulas never arise. The design's gate condition
-asks for exactly this correction, and we get it by construction.
+Storing counts instead of ``(b, d, u)`` makes the update both trivial and
+robust: cumulative fusion is just count addition, which is associative
+and order-independent, so the division-by-zero corner cases of the
+pairwise ``(b, d, u)`` fusion formulas never arise. This is the
+correction the design's gate condition asks for, obtained by
+construction rather than by patching the pairwise forms.
 
-An Opinion's counts are the ``Beta(r + 1, s + 1)`` pseudo-counts. That
-Beta's mean equals the projected probability ``P`` at base rate 0.5 -- not
-the belief ``b``. We treat this mapping as a *parameterization*, judged by
-calibration downstream, not as a proven isomorphism of belief. ``W = 2``
-is the binary-frame convention. Each claim is its own independent
-binomial, so the convention stays exact.
+The opinion-to-Beta mapping (an Opinion's counts are the
+``Beta(r + 1, s + 1)`` pseudo-counts) is treated here as a
+*parameterization* whose worth is judged by calibration downstream, not
+as a proven isomorphism of belief. That Beta's mean is the projected
+probability ``P`` at base rate 0.5, not the belief ``b``. ``W = 2`` is the
+binary-frame convention; each claim is its own independent binomial, so
+the convention stays exact.
 
 This module is pure math. How an LLM confidence becomes evidence counts
 is the worldview encoding's job, not this module's.
