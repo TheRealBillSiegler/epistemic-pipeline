@@ -176,10 +176,14 @@ def discount(opinion: Opinion, reliability: float) -> Opinion:
     opinion goes fully vacuous (the source is ignored), at reliability 1
     it is unchanged.
 
-    Note: this scales the evidence counts, not the belief mass. It is not
-    the canonical trust-discount ``b' = P_R * b``; the two agree only at
-    reliability 0 and 1. Scaling counts keeps discounting associative with
-    fusion.
+    This is Evidence-Based Subjective Logic's evidence-scaling discount
+    (Skoric et al., arXiv:1402.3319): it multiplies the counts. It is NOT
+    the canonical belief-mass trust-discount ``b' = P_R * b`` (they agree
+    only at reliability 0 and 1); belief-mass discounting has a documented
+    pathology -- a trusted high-evidence source's evidence can vanish --
+    that count-scaling avoids. Count-scaling is itself non-associative;
+    order-independence comes from cumulative fusion (count addition), since
+    each source is discounted before it is fused.
 
     Args:
         opinion: the evidence a source contributes.
