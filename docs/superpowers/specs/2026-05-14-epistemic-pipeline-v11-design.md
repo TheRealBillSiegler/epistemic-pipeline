@@ -1,7 +1,7 @@
 # Epistemic Pipeline v1.1 Design Specification
 
 **Date:** 2026-05-14
-**Status:** Implemented
+**Status:** Implemented (current baseline).
 **Delta from v1.0:** LLM-agent encoding (fifth expressiveness demonstration), trace persistence as JSONL, `epc` command-line interface (replay/diff/score), and a named use case for agent debugging.
 
 ---
@@ -34,6 +34,8 @@ The LLM-agent encoding treats one run of an LLM agent loop as a single (O, E, B,
 R must be pure. But the LLM is not deterministic. v1.0 already names this gap and resolves it: the LLM response is recorded as an `Observation` *before* R runs. R reads the recorded text and applies a deterministic parse-and-renormalize step. The randomness is captured in E, not in R.
 
 In live mode, the pipeline calls the LLM through an `LLMInterface` and records each response as evidence. In replay mode, the pipeline reads recorded responses from a trace file and produces the same state sequence. The hard invariant "R is pure" holds because R only ever reads from E.
+
+> **Caveat — evidence vs. proposal.** Recording every LLM response as an `Observation` is a deliberate engineering simplification, not a claim that each one is evidence in the strict sense. An observation reports something about the world. A *proposal* — "restructure the ontology," "switch strategy" — is a suggestion about how to reason. They are different epistemic objects. Collapsing both into the evidence stream keeps R pure and the trace replayable, but a later version may give proposals their own channel.
 
 ### 1.3 Types
 

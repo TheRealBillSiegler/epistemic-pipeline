@@ -62,3 +62,16 @@ def run_pipeline[O, B](
         trace=tuple(trace),
         meta_decision=meta_result,
     )
+
+
+def identity_stage[O, B](
+    state: EpistemicState[O, B],
+) -> EpistemicState[O, B]:
+    """A pipeline stage that returns the state unchanged.
+
+    Use it for a stage an encoding does not need. Keeping the stage in the
+    list (instead of dropping it) keeps every encoding's pipeline the same
+    length, so traces and norm scores line up across encodings. At each call
+    site, a comment says why that stage is empty for that framework.
+    """
+    return state

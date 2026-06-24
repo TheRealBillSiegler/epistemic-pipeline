@@ -10,7 +10,7 @@ The revision policy expands one frontier state per call.
 from dataclasses import dataclass, replace
 
 from epistemic_pipeline.meta import MetaController
-from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
+from epistemic_pipeline.pipeline import PipelineResult, identity_stage, run_pipeline
 from epistemic_pipeline.state import EpistemicState, Metadata, Observation
 
 
@@ -242,20 +242,6 @@ def strips_decompose(
     )
 
 
-def strips_model(
-    state: EpistemicState[STRIPSOntology, STRIPSBeliefs],
-) -> EpistemicState[STRIPSOntology, STRIPSBeliefs]:
-    """Model stage: no-op. Revision policy set in Frame.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
 def strips_select(
     state: EpistemicState[STRIPSOntology, STRIPSBeliefs],
 ) -> EpistemicState[STRIPSOntology, STRIPSBeliefs]:
@@ -319,20 +305,6 @@ def strips_test(
     )
 
 
-def strips_integrate(
-    state: EpistemicState[STRIPSOntology, STRIPSBeliefs],
-) -> EpistemicState[STRIPSOntology, STRIPSBeliefs]:
-    """Integrate stage: the plan is in beliefs. Pass-through.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
 def run_strips_pipeline(
     problem: STRIPSProblem,
     meta_controller: MetaController | None = None,
@@ -356,10 +328,10 @@ def run_strips_pipeline(
         initial_state=initial_state,
         stages=[
             strips_decompose,
-            strips_model,
+            identity_stage,  # Model: revision policy is set in Frame
             strips_select,
             strips_test,
-            strips_integrate,
+            identity_stage,  # Integrate: the plan is already in beliefs
         ],
         meta_controller=meta_controller,
     )

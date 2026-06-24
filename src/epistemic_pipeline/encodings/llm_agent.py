@@ -20,9 +20,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from epistemic_pipeline.encodings._confidence import parse_confidence_vector
+from epistemic_pipeline.encodings._confidence import (
+    detect_oscillation,
+    parse_confidence_vector,
+)
 from epistemic_pipeline.meta import MetaController
-from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
+from epistemic_pipeline.pipeline import PipelineResult, identity_stage, run_pipeline
 from epistemic_pipeline.state import (
     EpistemicState,
     EvidenceType,
@@ -35,9 +38,6 @@ if TYPE_CHECKING:
     from epistemic_pipeline.tools.tool_interfaces import ToolInterface
 
 _FLOAT_TOLERANCE = 1e-9
-_OSCILLATION_WINDOW = 6
-_OSCILLATION_MIN_TRANSITIONS = 3
-_OSCILLATION_MIN_WINDOW = 2
 _MIN_FOR_MARGIN = 2
 
 
@@ -132,28 +132,6 @@ def llm_agent_update(
     return LLMAgentBeliefs(confidences=normalized)
 
 
-def _detect_oscillation(map_history: list[str]) -> bool:
-    """Return True if the top hypothesis flips at least three times.
-
-    A flip is a change of the argmax between consecutive steps. Three
-    flips inside a six-step window means the evidence is pushing
-    beliefs back and forth instead of converging.
-
-    Args:
-        map_history: the argmax hypothesis recorded after each step.
-
-    Returns:
-        True if oscillation is detected; False otherwise.
-    """
-    window = map_history[-_OSCILLATION_WINDOW:]
-    if len(window) < _OSCILLATION_MIN_WINDOW:
-        return False
-    transitions = sum(
-        1 for i in range(len(window) - 1) if window[i] != window[i + 1]
-    )
-    return transitions >= _OSCILLATION_MIN_TRANSITIONS
-
-
 def _summarize_evidence(evidence: tuple[Observation, ...]) -> str:
     """Build a short text summary of evidence for prompting the LLM.
 
@@ -229,27 +207,6 @@ def llm_agent_frame(
         revision_policy=llm_agent_update,
         metadata=metadata,
     )
-
-
-def llm_agent_decompose(
-    state: EpistemicState[LLMAgentOntology, LLMAgentBeliefs],
-) -> EpistemicState[LLMAgentOntology, LLMAgentBeliefs]:
-    """Decompose stage: no-op for v1.1."""
-    return state
-
-
-def llm_agent_model(
-    state: EpistemicState[LLMAgentOntology, LLMAgentBeliefs],
-) -> EpistemicState[LLMAgentOntology, LLMAgentBeliefs]:
-    """Model stage: no-op. Priors and revision policy are set in Frame."""
-    return state
-
-
-def llm_agent_select(
-    state: EpistemicState[LLMAgentOntology, LLMAgentBeliefs],
-) -> EpistemicState[LLMAgentOntology, LLMAgentBeliefs]:
-    """Select stage: no-op. Tool choice is made each iteration in Test."""
-    return state
 
 
 def _llm_agent_test_factory(
@@ -359,7 +316,7 @@ def _llm_agent_test_factory(
 
             # 6. Detect oscillation.
             if (
-                _detect_oscillation(map_history)
+                detect_oscillation(map_history)
                 and "oscillation" not in anomalies
             ):
                 anomalies.append("oscillation")
@@ -441,9 +398,9 @@ def run_llm_agent_pipeline(
     return run_pipeline(
         initial_state=initial_state,
         stages=[
-            llm_agent_decompose,
-            llm_agent_model,
-            llm_agent_select,
+            identity_stage,  # Decompose: the agent loop has no sub-problems
+            identity_stage,  # Model: priors and revision policy are set in Frame
+            identity_stage,  # Select: tool choice is made each iteration in Test
             _llm_agent_test_factory(problem),
             llm_agent_integrate,
         ],

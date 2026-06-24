@@ -1,12 +1,12 @@
 # Epistemic Pipeline
 
-> **Status: v1.0 complete.** Four expressiveness demonstrations (Bayesian inference, STRIPS planning, forward-state search, MDP value iteration) are implemented with full pipeline, norms, and adaptive meta-layer.
+> **Status: v1.1 implemented.** Five reasoning frameworks run on the full pipeline — Bayesian inference, STRIPS planning, forward-state search, MDP value iteration, and an LLM-agent loop — each with norm scoring, an adaptive meta-layer, JSONL trace persistence, and the `epc` CLI. A sixth encoding, worldview, revises beliefs over a growing corpus using Subjective Logic; its revision rule has landed, with source-credibility grounding still to come.
 
 A formal system for making reasoning explicit and auditable. It tracks four things: the vocabulary of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
 
 **Who is this for?** Researchers and engineers who build systems that reason — and need to inspect, replay, and evaluate that reasoning after the fact.
 
-[Formal Spec](docs/superpowers/specs/) · [Design Document](docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md)
+[Formal specs (index)](docs/superpowers/specs/) · [Current design (v1.1)](docs/superpowers/specs/2026-05-14-epistemic-pipeline-v11-design.md)
 
 Python 3.14+ | Zero dependencies | MIT License
 
@@ -53,54 +53,66 @@ This design records the why. Every state is immutable. Once created, it never ch
 ## API Example
 
 ```python
-from epistemic_pipeline import run_pipeline
-from epistemic_pipeline.encodings.bayes import (
-    BayesOntology, BayesBeliefs, BayesRevision, bayes_stages,
-)
+from epistemic_pipeline.encodings.bayes import BayesProblem, run_bayesian_pipeline
+from epistemic_pipeline.state import Observation
 
-# Define the problem ontology
-ontology = BayesOntology(
-    hypotheses=["flu", "cold", "covid"],
-    observables=["fever", "cough", "loss_of_smell"],
-    # Likelihoods: P(symptom | disease). Each key is (disease, symptom, observed_value).
-    # Example: ("flu", "fever", True): 0.8 means "if the patient has flu, there is an
-    # 80% chance they have a fever."
+# Define the problem: hypotheses, observables, likelihoods, evidence, priors.
+problem = BayesProblem(
+    hypotheses=("flu", "cold", "covid"),
+    observables=("fever", "cough", "loss_of_smell"),
+    # Likelihoods: P(value | disease, symptom). Each key is (disease, symptom, value).
+    # ("flu", "fever", "yes"): 0.8 means "given flu, an 80% chance of fever."
     likelihoods={
-        ("flu",   "fever", True): 0.8,   ("flu",   "cough", True): 0.7,  ("flu",   "loss_of_smell", True): 0.05,
-        ("cold",  "fever", True): 0.3,   ("cold",  "cough", True): 0.9,  ("cold",  "loss_of_smell", True): 0.02,
-        ("covid", "fever", True): 0.85,  ("covid", "cough", True): 0.8,  ("covid", "loss_of_smell", True): 0.7,
+        ("flu",   "fever", "yes"): 0.8,   ("flu",   "cough", "yes"): 0.7,  ("flu",   "loss_of_smell", "yes"): 0.05,
+        ("cold",  "fever", "yes"): 0.3,   ("cold",  "cough", "yes"): 0.9,  ("cold",  "loss_of_smell", "yes"): 0.02,
+        ("covid", "fever", "yes"): 0.85,  ("covid", "cough", "yes"): 0.8,  ("covid", "loss_of_smell", "yes"): 0.7,
     },
+    # Evidence, processed in order during the Test stage.
+    observations=(
+        Observation(variable="fever",         value="yes", source="exam", timestamp=1.0),
+        Observation(variable="cough",         value="yes", source="exam", timestamp=2.0),
+        Observation(variable="loss_of_smell", value="yes", source="exam", timestamp=3.0),
+    ),
+    # Priors — the starting confidence before any symptoms. Must sum to 1.
+    priors={"flu": 0.4, "cold": 0.4, "covid": 0.2},
 )
 
-# Prior beliefs — the starting confidence before any symptoms are observed.
-# "Prior" means "before seeing the evidence." These numbers must sum to 1.
-beliefs = BayesBeliefs({"flu": 0.4, "cold": 0.4, "covid": 0.2})
+# Run the full pipeline. Each stage is a pure function: state in, state out.
+result = run_bayesian_pipeline(problem)
 
-# Run the pipeline — each stage is a pure function, state in, state out
-result = run_pipeline(
-    ontology=ontology,
-    beliefs=beliefs,
-    revision_policy=BayesRevision(),
-    evidence=[("fever", True), ("cough", True), ("loss_of_smell", True)],
-    # Stages are the pipeline steps that run in order: frame the problem,
-    # decompose it, build a model, choose a strategy, test, and integrate.
-    # bayes_stages() returns these 6 stages pre-configured for Bayesian inference.
-    stages=bayes_stages(),
-)
-
-print(result.beliefs)
+print(result.final_state.beliefs.probabilities)
 # → {flu: 0.10, cold: 0.02, covid: 0.88}
 
-# Replay the reasoning trace — every intermediate state is preserved
+# Every stage's state is preserved in result.trace. Beliefs update in the
+# Test stage, which applies all the evidence.
 for i, state in enumerate(result.trace):
-    print(f"Step {i}: {state.beliefs}")
-# → Step 0: {flu: 0.40, cold: 0.40, covid: 0.20}
-# → Step 1: {flu: 0.52, cold: 0.20, covid: 0.28}   (after fever)
-# → Step 2: {flu: 0.48, cold: 0.23, covid: 0.29}   (after cough)
-# → Step 3: {flu: 0.10, cold: 0.02, covid: 0.88}   (after loss_of_smell)
+    print(f"Step {i}: {state.beliefs.probabilities}")
+# → Step 0: {flu: 0.40, cold: 0.40, covid: 0.20}   (Frame: priors)
+# → Step 4: {flu: 0.10, cold: 0.02, covid: 0.88}   (Test: after all evidence)
 ```
 
 Three symptoms in. One diagnosis out. Every step recorded and replayable.
+
+The pipeline applies all the evidence inside the Test stage, so the trace above
+moves in a single step. To watch beliefs shift one observation at a time, call
+the revision policy R (`bayes_update`) directly:
+
+```python
+from epistemic_pipeline.encodings.bayes import BayesOntology, BayesBeliefs, bayes_update
+
+ontology = BayesOntology(problem.hypotheses, problem.observables, problem.likelihoods)
+beliefs = BayesBeliefs({"flu": 0.4, "cold": 0.4, "covid": 0.2})
+for obs in problem.observations:
+    beliefs = bayes_update(beliefs, obs, ontology)
+    print(obs.variable, beliefs.probabilities)
+# → fever          {flu: 0.52, cold: 0.20, covid: 0.28}   (flu jumps ahead)
+# → cough          {flu: 0.48, cold: 0.23, covid: 0.29}   (flu still leads)
+# → loss_of_smell  {flu: 0.10, cold: 0.02, covid: 0.88}   (covid takes over)
+```
+
+Each observation moves the beliefs. Flu jumps ahead on fever and holds through
+cough, then loss_of_smell flips the call to covid — the kind of path the full
+trace is there to record.
 
 Note: the model assumes symptoms are conditionally independent given the disease. Conditional independence is a simplifying assumption. It means each symptom's probability depends only on the disease, not on whether other symptoms are present. This is the "naive Bayes" simplification. Real medical diagnosis is more complex. This keeps the example clear.
 
@@ -116,7 +128,7 @@ class MyRevision:
         ...
 ```
 
-`BayesRevision` applies Bayes' rule inside this interface. A planning revision would apply an action to a world state. The interface stays the same.
+`bayes_update` applies Bayes' rule inside this interface. It is a plain function, not a class — any callable with this signature works. A planning revision would apply an action to a world state. The interface stays the same.
 
 ---
 
@@ -163,9 +175,11 @@ Each layer reads and writes different parts of the state tuple:
 ## What Ships Today
 
 - Deterministic state machine implementing `(O, E, B, R)`
-- Four expressiveness demonstrations: Bayesian inference, STRIPS planning, forward-state search, MDP value iteration
+- Five expressiveness demonstrations: Bayesian inference, STRIPS planning, forward-state search, MDP value iteration, and an LLM-agent loop
 - Full state trace, norm scoring, adaptive meta-layer with intervention budget and cycle detection. Norm scoring means evaluating the quality of the reasoning process, not just its output.
-- Tool/LLM integration layer (v1.0)
+- Trace persistence as JSONL, plus the `epc` CLI to replay, diff, and score saved traces
+- Tool/LLM integration layer
+- A worldview encoding whose Subjective Logic revision rule has landed; source-credibility grounding is next
 - No external dependencies. Pure Python.
 
 An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration. It shows the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior credences must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
@@ -176,7 +190,7 @@ The formal specs live in [`docs/superpowers/specs/`](docs/superpowers/specs/). T
 
 ## Expressiveness Demonstrations
 
-Four frameworks, each encoded as `(O, E, B, R)`:
+Five frameworks, each encoded as `(O, E, B, R)` — plus a worldview encoding in progress:
 
 ```mermaid
 graph TD
@@ -197,6 +211,10 @@ graph TD
     OEBR --> MDP["MDP value iteration
     O: States & actions · B: Value estimates
     R: Bellman update"]
+
+    OEBR --> AGENT["LLM agent
+    O: Tools & hypotheses · B: Confidence
+    R: Confidence-rated update"]
 ```
 
 | | Framework | What it is | What it tests | R becomes | Status |
@@ -205,6 +223,8 @@ graph TD
 | **v0.2** | STRIPS / PDDL | A formal language for describing planning problems: what actions exist, what they require, and what they change | Goal-directed planning. All four components (not just R) get reinterpreted: B becomes world state, E becomes action history | Search strategy | Done |
 | **v0.2** | Forward-state search | Exploring a space of possible states toward a goal | General problem solving | Operator selection | Done |
 | **v1.0** | MDPs | Markov Decision Processes. A mathematical framework for choosing actions when outcomes are uncertain and future consequences matter | Decision-making under uncertainty | Bellman updates | Done |
+| **v1.1** | LLM agent | A program that calls a language model in a loop, often with tools, to answer a question | Tool-using agents, with graded confidence over hypotheses | Confidence-rated update | Done |
+| **next** | Worldview | Tracking graded beliefs about claims as new documents arrive | Belief revision over a worldview, without forgetting on omission | Subjective Logic fusion | In progress |
 
 The tuple is general enough to encode most things. Any computation can be described as a state machine. That is not the interesting claim. The interesting claim is different. Decomposing state into O, E, B, and R captures epistemically relevant structure that a generic state machine does not. The access-control pattern in the layer table above matters. The real test is whether each encoding preserves what makes its framework distinct.
 
@@ -232,9 +252,10 @@ uv run epc score trace.jsonl        # score the run on reliability, efficiency, 
 
 ```text
 epistemic-pipeline/
-├── docs/superpowers/specs/         Formal specifications
-├── docs/superpowers/plans/         Implementation plans
-├── research/                       Research notes (MCS series)
+├── docs/superpowers/specs/         Current design specs (start at README.md)
+├── docs/research/                  Active research notes (worldview / Subjective Logic)
+├── research/                       Agent-debugging use case + sample traces
+├── archive/                        Superseded specs, plans, and early research notes
 ├── src/epistemic_pipeline/         Reference implementation
 ├── tests/                          pytest suite
 └── pyproject.toml
