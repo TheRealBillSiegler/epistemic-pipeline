@@ -9,7 +9,7 @@ spec describes the code you are looking at.
 | Spec | Status | What it covers |
 |------|--------|----------------|
 | [v1.1 design](2026-05-14-epistemic-pipeline-v11-design.md) | **Implemented** — current baseline | The shipped architecture: `(O, E, B, R)` state, six-stage pipeline, norms, adaptive meta-layer, five encodings (Bayes, STRIPS, search, MDP, LLM-agent), JSONL trace persistence, the `epc` CLI. |
-| [Worldview — Subjective Logic design](2026-06-23-worldview-subjective-logic-design.md) | **Proposed** — in progress | The next belief representation `B` and revision rule `R` for the worldview encoding. Supersedes the v1.1 "renormalize over the latest vector" rule. |
+| [Worldview — Subjective Logic design](2026-06-23-worldview-subjective-logic-design.md) | **In progress** — SL math + revision rule landed (Units 1-2); credibility grounding and trust gate remain | The belief representation `B` and revision rule `R` for the worldview encoding. Replaces the earlier "renormalize over the latest vector" rule (PR #14). |
 
 The active research behind the worldview work lives in [`/docs/research/`](../../research/).
 

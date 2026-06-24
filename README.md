@@ -1,6 +1,6 @@
 # Epistemic Pipeline
 
-> **Status: v1.1 implemented.** Five reasoning frameworks run on the full pipeline — Bayesian inference, STRIPS planning, forward-state search, MDP value iteration, and an LLM-agent loop — each with norm scoring, an adaptive meta-layer, JSONL trace persistence, and the `epc` CLI. A sixth encoding, worldview, is in progress: a Subjective Logic upgrade to how it revises beliefs.
+> **Status: v1.1 implemented.** Five reasoning frameworks run on the full pipeline — Bayesian inference, STRIPS planning, forward-state search, MDP value iteration, and an LLM-agent loop — each with norm scoring, an adaptive meta-layer, JSONL trace persistence, and the `epc` CLI. A sixth encoding, worldview, revises beliefs over a growing corpus using Subjective Logic; its revision rule has landed, with source-credibility grounding still to come.
 
 A formal system for making reasoning explicit and auditable. It tracks four things: the vocabulary of a problem, what has been observed, how confident the system is in each hypothesis, and the rule it uses to update that confidence.
 
@@ -110,8 +110,9 @@ for obs in problem.observations:
 # → loss_of_smell  {flu: 0.10, cold: 0.02, covid: 0.88}   (covid takes over)
 ```
 
-Each observation moves the beliefs. The flu lead even dips and recovers before
-loss_of_smell settles it — the kind of path the full trace is there to record.
+Each observation moves the beliefs. Flu jumps ahead on fever and holds through
+cough, then loss_of_smell flips the call to covid — the kind of path the full
+trace is there to record.
 
 Note: the model assumes symptoms are conditionally independent given the disease. Conditional independence is a simplifying assumption. It means each symptom's probability depends only on the disease, not on whether other symptoms are present. This is the "naive Bayes" simplification. Real medical diagnosis is more complex. This keeps the example clear.
 
@@ -178,7 +179,7 @@ Each layer reads and writes different parts of the state tuple:
 - Full state trace, norm scoring, adaptive meta-layer with intervention budget and cycle detection. Norm scoring means evaluating the quality of the reasoning process, not just its output.
 - Trace persistence as JSONL, plus the `epc` CLI to replay, diff, and score saved traces
 - Tool/LLM integration layer
-- A worldview encoding, with a Subjective Logic upgrade to its revision rule in progress
+- A worldview encoding whose Subjective Logic revision rule has landed; source-credibility grounding is next
 - No external dependencies. Pure Python.
 
 An "expressiveness demonstration" shows that a well-known reasoning framework fits into this architecture as one configuration. It shows the encoding preserves the framework's essential properties, not just its inputs and outputs. What counts as "essential" depends on the framework. For Bayesian inference: the posterior credences must match what Bayes' rule produces. A posterior is the updated confidence after seeing the evidence.
