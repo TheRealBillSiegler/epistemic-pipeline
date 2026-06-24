@@ -91,6 +91,21 @@ class TestIngestDocument:
         assert hist[0]["delta"] == pytest.approx(1.0)
         assert hist[1]["delta"] == pytest.approx(-0.5)
 
+    def test_degenerate_rating_leaves_other_claims_untouched(self, store):
+        # A non-empty all-zero rating filters to no mass, so the revision
+        # policy echoes the prior. The ingest must not re-stamp, relink, or
+        # observe the unrelated claim it never mentioned.
+        author_claim(store, "user claim", 0.8, ts=1.0)
+        result = ingest_document(
+            store, _llm({"unrated": 0.0}), "q", "d", ts=2.0, seed=0, model_id="m",
+        )
+        assert result == {}
+        uc = store.get_claim("user claim")
+        assert uc["source_type"] == "user"  # not flipped to inferred
+        assert uc["confidence"] == pytest.approx(0.8)
+        assert store.history("user claim") == []  # no spurious zero-delta link
+        assert store.observations() == []  # no dangling observation
+
 
 class TestNoteIngester:
     def test_unchanged_content_is_deduped(self, store):
@@ -115,6 +130,17 @@ class TestNoteIngester:
         ing = NoteIngester(store, llm, "q", model_id="m")
         ing.ingest("note.md", "body", ts=1.0, seed=0)
         assert store.get_claim("A")["source_type"] == "derived"
+
+    def test_failed_ingest_is_retried_not_skipped(self, store):
+        # Only one rating is queued. The first changed note consumes it; the
+        # second raises (queue empty). Re-ingesting the second content must
+        # retry (raise again), not dedupe-skip a note that never landed.
+        ing = NoteIngester(store, _llm({"A": 1.0}), "q", model_id="m")
+        ing.ingest("note.md", "v1", ts=1.0, seed=0)  # consumes the rating
+        with pytest.raises(IndexError):
+            ing.ingest("note.md", "v2", ts=2.0, seed=0)  # LLM call raises
+        with pytest.raises(IndexError):
+            ing.ingest("note.md", "v2", ts=3.0, seed=0)  # retried, not skipped
 
 
 def test_all_three_paths_share_one_store(store):

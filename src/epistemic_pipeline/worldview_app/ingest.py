@@ -112,15 +112,22 @@ def ingest_rating(  # noqa: PLR0913
     obs = extraction_observation(confidences, ts, model_id, prompt_hash, seed)
     posterior = worldview_update(WorldviewBeliefs(prior), obs, ontology)
 
+    # Persist only what this rating produced. A degenerate (all <= 0)
+    # rating makes worldview_update echo the prior unchanged; intersect
+    # with the incoming claims so we never re-stamp or relink unrelated
+    # beliefs, and skip the observation entirely when nothing survives.
+    updated = {c: v for c, v in posterior.confidences.items() if c in confidences}
+    if not updated:
+        return {}
     obs_id = store.add_observation(
         obs.variable, obs.value, obs.source, obs.confidence, obs.timestamp,
         modality=obs.modality,
     )
-    for claim, conf in posterior.confidences.items():
+    for claim, conf in updated.items():
         delta = conf - prior.get(claim, 0.0)
         store.put_claim(claim, claim, conf, source_type, ts)
         store.add_link(claim, obs_id, delta, reason, ts)
-    return posterior.confidences
+    return updated
 
 
 def ingest_document(  # noqa: PLR0913
@@ -221,8 +228,10 @@ class NoteIngester:
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         if self._seen.get(path) == digest:
             return None
-        self._seen[path] = digest
-        return ingest_document(
+        # Record the hash only after a successful ingest. If the LLM call
+        # raises, the note stays un-seen so the next attempt retries it
+        # instead of silently skipping a never-ingested note.
+        result = ingest_document(
             self.store,
             self.llm,
             self.question,
@@ -233,3 +242,5 @@ class NoteIngester:
             reason=path,
             source_type="derived",
         )
+        self._seen[path] = digest
+        return result
