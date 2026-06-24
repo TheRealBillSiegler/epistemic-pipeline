@@ -26,15 +26,18 @@ future locked-ontology mode, not this auto-growing one.
 from __future__ import annotations
 
 import hashlib
+import math
 from typing import TYPE_CHECKING
 
 from epistemic_pipeline.encodings._confidence import parse_confidence_vector
 from epistemic_pipeline.encodings.worldview import (
+    DEFAULT_BASE_RATE,
     WorldviewBeliefs,
     WorldviewOntology,
     extraction_observation,
     worldview_update,
 )
+from epistemic_pipeline.state import EvidenceType, Observation
 
 if TYPE_CHECKING:
     from epistemic_pipeline.llm.llm_interfaces import RatingLLMInterface
@@ -50,7 +53,15 @@ def author_claim(
     """Record a claim the user states directly (source_type 'user').
 
     A user assertion is not driven by document evidence, so it writes no
-    observation or evidence link -- just the claim and its concept.
+    observation or evidence link -- just the claim and its concept. It is
+    therefore outside the Subjective-Logic evidence trail. If a later
+    document rates the same claim (claim id is the text, so they collide),
+    the document evidence takes over: the stored confidence becomes the
+    document-derived projected probability, the source_type becomes the
+    document's, and the drift link records the change from the user's last
+    displayed value. User assertions and document-derived opinions are kept
+    as separate kinds of belief for now; folding user assertions into the
+    evidence trail is future work.
 
     Args:
         store: the belief store to write to.
@@ -68,6 +79,47 @@ def _prompt_hash(*parts: str) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
 
 
+def _replay_beliefs(store: Store) -> WorldviewBeliefs:
+    """Rebuild current opinions by replaying R over the stored evidence.
+
+    The store's ``claims.confidence`` column is a display cache of each
+    opinion's projected probability; the authoritative belief state is the
+    confidence-vector observation trail. Replaying R over it reconstructs
+    the opinions, keeping the encoding's "B is a pure function of E"
+    invariant -- the store never holds the only copy of a belief.
+
+    The ontology is read here (the full, current concept set) rather than
+    passed in: concepts are append-only, so the current set covers every
+    concept any past observation named, and a caller cannot hand in a
+    stale or narrowed ontology that would silently drop concepts.
+
+    ponytail: O(observations) per call. Fine for a personal corpus. If the
+    trail grows large, persist (r, s) on the claims row and skip the replay.
+
+    Args:
+        store: the belief store.
+
+    Returns:
+        The current opinions, one per concept that has evidence.
+    """
+    ontology = WorldviewOntology(concepts=frozenset(store.concepts()))
+    beliefs = WorldviewBeliefs({})
+    for row in store.observations():
+        if row["variable"] != "confidence_vector":
+            continue
+        obs = Observation(
+            variable=row["variable"],
+            value=row["value"],
+            source=row["source"],
+            timestamp=row["timestamp"],
+            confidence=row["confidence"],
+            etype=EvidenceType.REPORT,
+            modality=row["modality"],
+        )
+        beliefs = worldview_update(beliefs, obs, ontology)
+    return beliefs
+
+
 def ingest_rating(  # noqa: PLR0913
     store: Store,
     confidences: dict[str, float],
@@ -79,14 +131,16 @@ def ingest_rating(  # noqa: PLR0913
     seed: int,
     reason: str,
 ) -> dict[str, float]:
-    """Persist an LLM rating: grow O, revise B, link the evidence.
+    """Persist an LLM rating: grow O, accumulate evidence, link the drift.
 
     Steps:
     1. Add every rated claim to the ontology as a concept.
-    2. Apply the revision policy to the recorded confidence vector.
+    2. Replay R over the stored evidence to get current opinions, then
+       apply R to this rating to get the updated opinions.
     3. Write the confidence-vector observation once.
-    4. For each claim in the posterior, update its stored confidence and
-       link it to the observation with the delta from its prior value.
+    4. For each rated concept, cache its new projected probability on the
+       claims row and link the projected-probability change (the drift)
+       to the observation.
 
     Args:
         store: the belief store.
@@ -99,26 +153,30 @@ def ingest_rating(  # noqa: PLR0913
         reason: short human-readable cause, shown in the drift timeline.
 
     Returns:
-        The posterior confidence map that was persisted (empty if the
-        rating had nothing usable).
+        A map from each moved concept to its new projected probability
+        (empty if the rating moved nothing).
     """
-    if not confidences:
+    # Drop non-finite ratings before touching the store, so a value the
+    # encoding would discard (NaN/Infinity) cannot leave an orphan concept
+    # in the ontology with no belief behind it.
+    rated = {c: v for c, v in confidences.items() if math.isfinite(v)}
+    if not rated:
         return {}
-    for claim in confidences:
+    for claim in rated:
         store.add_concept(claim, source_type)
 
     ontology = WorldviewOntology(concepts=frozenset(store.concepts()))
-    prior = {row["id"]: row["confidence"] for row in store.claims()}
-    obs = extraction_observation(confidences, ts, model_id, prompt_hash, seed)
-    posterior = worldview_update(WorldviewBeliefs(prior), obs, ontology)
+    before = _replay_beliefs(store)
+    obs = extraction_observation(rated, ts, model_id, prompt_hash, seed)
+    after = worldview_update(before, obs, ontology)
 
-    # Persist only what this rating produced. A degenerate (all <= 0)
-    # rating makes worldview_update echo the prior unchanged; intersect
-    # with the incoming claims so we never re-stamp or relink unrelated
-    # beliefs, and skip the observation entirely when nothing survives.
-    updated = {c: v for c, v in posterior.confidences.items() if c in confidences}
-    if not updated:
+    # Only the concepts this rating actually moved. A concept enters
+    # ``after.opinions`` only when R fused evidence for it, so this both
+    # skips unrelated beliefs and is empty when nothing survived parsing.
+    moved = [c for c in rated if c in after.opinions]
+    if not moved:
         return {}
+
     obs_id = store.add_observation(
         obs.variable,
         obs.value,
@@ -127,11 +185,20 @@ def ingest_rating(  # noqa: PLR0913
         obs.timestamp,
         modality=obs.modality,
     )
-    for claim, conf in updated.items():
-        delta = conf - prior.get(claim, 0.0)
-        store.put_claim(claim, claim, conf, source_type, ts)
-        store.add_link(claim, obs_id, delta, reason, ts)
-    return updated
+    result: dict[str, float] = {}
+    for claim in moved:
+        p_after = after.opinions[claim].projected
+        # Drift is measured from the value the user last saw -- the cached
+        # confidence on the claims row -- so the link reconciles with the
+        # displayed trajectory even for a claim a user authored directly
+        # (which has a row but no opinion in the evidence trail). A
+        # brand-new claim has no row, so it starts from the base rate.
+        existing = store.get_claim(claim)
+        p_before = existing["confidence"] if existing is not None else DEFAULT_BASE_RATE
+        store.put_claim(claim, claim, p_after, source_type, ts)
+        store.add_link(claim, obs_id, p_after - p_before, reason, ts)
+        result[claim] = p_after
+    return result
 
 
 def ingest_document(  # noqa: PLR0913

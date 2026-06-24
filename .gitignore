@@ -220,3 +220,6 @@ __marimo__/
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Worktrees created by tooling under .claude
+.claude/worktrees/

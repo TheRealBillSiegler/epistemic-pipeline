@@ -21,6 +21,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from epistemic_pipeline.encodings._subjective_logic import Opinion
 from epistemic_pipeline.encodings.bayes import (
     BayesBeliefs,
     BayesOntology,
@@ -350,13 +351,23 @@ def _deserialize_worldview_ontology(payload: dict[str, Any]) -> WorldviewOntolog
 
 
 def _serialize_worldview_beliefs(beliefs: WorldviewBeliefs) -> dict[str, Any]:
-    # Sort keys so the dump is byte-identical no matter how the beliefs
+    # Sort keys so the dump is byte-identical no matter how the opinions
     # dict was built (fresh run, store load, or direct construction).
-    return {"confidences": dict(sorted(beliefs.confidences.items()))}
+    return {
+        "opinions": {
+            name: {"r": op.r, "s": op.s, "base_rate": op.base_rate}
+            for name, op in sorted(beliefs.opinions.items())
+        },
+    }
 
 
 def _deserialize_worldview_beliefs(payload: dict[str, Any]) -> WorldviewBeliefs:
-    return WorldviewBeliefs(confidences=dict(payload["confidences"]))
+    return WorldviewBeliefs(
+        opinions={
+            name: Opinion(r=o["r"], s=o["s"], base_rate=o["base_rate"])
+            for name, o in payload["opinions"].items()
+        },
+    )
 
 
 # --- Registry population ---

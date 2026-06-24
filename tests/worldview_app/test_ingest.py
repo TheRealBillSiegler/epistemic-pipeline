@@ -43,7 +43,9 @@ class TestAuthorClaim:
 
 
 class TestIngestDocument:
-    def test_inferred_claims_persisted_and_normalized(self, store):
+    def test_inferred_claims_persisted_as_opinions(self, store):
+        # Each claim is an independent opinion, not a normalized share.
+        # p=0.6 -> Opinion(1.2, 0.8) -> P=0.55; p=0.2 -> Opinion(0.4, 1.6) -> P=0.35.
         llm = _llm({"A": 0.6, "B": 0.2})
         posterior = ingest_document(
             store,
@@ -54,12 +56,11 @@ class TestIngestDocument:
             seed=0,
             model_id="m",
         )
-        # 0.6 / 0.8 = 0.75, 0.2 / 0.8 = 0.25
-        assert posterior["A"] == pytest.approx(0.75)
-        assert posterior["B"] == pytest.approx(0.25)
+        assert posterior["A"] == pytest.approx(0.55)
+        assert posterior["B"] == pytest.approx(0.35)
         a = store.get_claim("A")
         assert a["source_type"] == "inferred"
-        assert a["confidence"] == pytest.approx(0.75)
+        assert a["confidence"] == pytest.approx(0.55)
 
     def test_grows_ontology_and_links_evidence(self, store):
         llm = _llm({"A": 1.0})
@@ -67,12 +68,13 @@ class TestIngestDocument:
         assert store.has_concept("A")
         hist = store.history("A")
         assert len(hist) == 1
-        # first document: delta is the full posterior (prior was 0)
-        assert hist[0]["delta"] == pytest.approx(1.0)
+        # First document: A moves from vacuous (P=0.5) to believed (P=0.75).
+        assert hist[0]["delta"] == pytest.approx(0.25)
         assert hist[0]["reason"].startswith("doc:")
 
     def test_first_document_on_empty_store_is_complete(self, store):
         # The empty-prior path: no setup, one doc yields usable beliefs.
+        # p=0.9 -> P=0.7; the higher-confidence claim leads.
         llm = _llm({"claim x": 0.9, "claim y": 0.1})
         posterior = ingest_document(
             store,
@@ -83,8 +85,8 @@ class TestIngestDocument:
             seed=0,
             model_id="m",
         )
-        assert sum(posterior.values()) == pytest.approx(1.0)
-        assert store.get_claim("claim x")["confidence"] == pytest.approx(0.9)
+        assert posterior["claim x"] > posterior["claim y"]
+        assert store.get_claim("claim x")["confidence"] == pytest.approx(0.7)
 
     def test_empty_rating_writes_nothing(self, store):
         llm = _llm({})
@@ -99,14 +101,15 @@ class TestIngestDocument:
         ingest_document(store, llm, "q", "d2", ts=2.0, seed=0, model_id="m")
         hist = store.history("A")
         assert len(hist) == 2
-        # A went 0 -> 1.0 (delta +1.0), then 1.0 -> 0.5 (delta -0.5)
-        assert hist[0]["delta"] == pytest.approx(1.0)
-        assert hist[1]["delta"] == pytest.approx(-0.5)
+        # A: vacuous(0.5) -> believed(0.75) [+0.25], then accumulates mixed
+        # evidence Opinion(2,0)+Opinion(1,1)=Opinion(3,1), P=0.667 [-0.0833].
+        assert hist[0]["delta"] == pytest.approx(0.25)
+        assert hist[1]["delta"] == pytest.approx(2 / 3 - 0.75)
 
-    def test_degenerate_rating_leaves_other_claims_untouched(self, store):
-        # A non-empty all-zero rating filters to no mass, so the revision
-        # policy echoes the prior. The ingest must not re-stamp, relink, or
-        # observe the unrelated claim it never mentioned.
+    def test_disconfirming_rating_does_not_touch_unrelated_claims(self, store):
+        # Under Subjective Logic a 0.0 rating is disconfirmation, not a no-op:
+        # it records a real opinion. But it must still leave a claim it never
+        # mentioned completely alone.
         author_claim(store, "user claim", 0.8, ts=1.0)
         result = ingest_document(
             store,
@@ -117,12 +120,41 @@ class TestIngestDocument:
             seed=0,
             model_id="m",
         )
-        assert result == {}
+        # 0.0 -> Opinion(0, 2) -> P=0.25: disconfirmation is recorded.
+        assert result == {"unrated": pytest.approx(0.25)}
+        assert store.get_claim("unrated")["confidence"] == pytest.approx(0.25)
+        # The unrelated user claim is untouched.
         uc = store.get_claim("user claim")
-        assert uc["source_type"] == "user"  # not flipped to inferred
+        assert uc["source_type"] == "user"
         assert uc["confidence"] == pytest.approx(0.8)
-        assert store.history("user claim") == []  # no spurious zero-delta link
-        assert store.observations() == []  # no dangling observation
+        assert store.history("user claim") == []
+
+    def test_document_rating_of_user_claim_reconciles_drift(self, store):
+        # A document rating a claim the user authored takes over, and the
+        # drift link reflects the change the user actually sees (0.8 -> 0.7),
+        # not a change measured from the vacuous base rate.
+        author_claim(store, "X", 0.8, ts=1.0)
+        result = ingest_document(
+            store, _llm({"X": 0.9}), "q", "d", ts=2.0, seed=0, model_id="m"
+        )
+        assert result["X"] == pytest.approx(0.7)  # p=0.9 -> Opinion(1.8,0.2) -> 0.7
+        row = store.get_claim("X")
+        assert row["confidence"] == pytest.approx(0.7)
+        assert row["source_type"] == "inferred"  # document evidence takes over
+        assert store.history("X")[-1]["delta"] == pytest.approx(0.7 - 0.8)
+
+    def test_unmentioned_claim_is_not_erased(self, store):
+        # The amnesia regression at the store level: a second document silent
+        # on A must leave A's stored belief and history untouched.
+        ingest_document(
+            store, _llm({"A": 1.0}), "q", "d1", ts=1.0, seed=0, model_id="m"
+        )
+        a_before = store.get_claim("A")["confidence"]
+        ingest_document(
+            store, _llm({"B": 1.0}), "q", "d2", ts=2.0, seed=0, model_id="m"
+        )
+        assert store.get_claim("A")["confidence"] == pytest.approx(a_before)
+        assert len(store.history("A")) == 1  # no new link for the silent doc
 
     def test_nonoverlapping_documents_accumulate_above_one(self, store):
         # ARCHIVE contract: store.claims() is a high-water per-claim archive,
