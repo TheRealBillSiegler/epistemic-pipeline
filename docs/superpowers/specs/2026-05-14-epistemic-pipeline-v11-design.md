@@ -37,6 +37,8 @@ R must be pure. But the LLM is not deterministic. v1.0 already names this gap an
 
 In live mode, the pipeline calls the LLM through an `LLMInterface` and records each response as evidence. In replay mode, the pipeline reads recorded responses from a trace file and produces the same state sequence. The hard invariant "R is pure" holds because R only ever reads from E.
 
+> **Caveat — evidence vs. proposal.** Recording every LLM response as an `Observation` is a deliberate engineering simplification, not a claim that each one is evidence in the strict sense. An observation reports something about the world. A *proposal* — "restructure the ontology," "switch strategy" — is a suggestion about how to reason. They are different epistemic objects. Collapsing both into the evidence stream keeps R pure and the trace replayable, but a later version may give proposals their own channel.
+
 ### 1.3 Types
 
 ```python

@@ -93,6 +93,26 @@ for i, state in enumerate(result.trace):
 
 Three symptoms in. One diagnosis out. Every step recorded and replayable.
 
+The pipeline applies all the evidence inside the Test stage, so the trace above
+moves in a single step. To watch beliefs shift one observation at a time, call
+the revision policy R (`bayes_update`) directly:
+
+```python
+from epistemic_pipeline.encodings.bayes import BayesOntology, BayesBeliefs, bayes_update
+
+ontology = BayesOntology(problem.hypotheses, problem.observables, problem.likelihoods)
+beliefs = BayesBeliefs({"flu": 0.4, "cold": 0.4, "covid": 0.2})
+for obs in problem.observations:
+    beliefs = bayes_update(beliefs, obs, ontology)
+    print(obs.variable, beliefs.probabilities)
+# → fever          {flu: 0.52, cold: 0.20, covid: 0.28}   (flu jumps ahead)
+# → cough          {flu: 0.48, cold: 0.23, covid: 0.29}   (flu still leads)
+# → loss_of_smell  {flu: 0.10, cold: 0.02, covid: 0.88}   (covid takes over)
+```
+
+Each observation moves the beliefs. The flu lead even dips and recovers before
+loss_of_smell settles it — the kind of path the full trace is there to record.
+
 Note: the model assumes symptoms are conditionally independent given the disease. Conditional independence is a simplifying assumption. It means each symptom's probability depends only on the disease, not on whether other symptoms are present. This is the "naive Bayes" simplification. Real medical diagnosis is more complex. This keeps the example clear.
 
 ### Writing Your Own Revision Policy
