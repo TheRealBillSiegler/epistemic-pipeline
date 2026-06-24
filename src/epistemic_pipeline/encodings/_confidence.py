@@ -52,7 +52,6 @@ def parse_confidence_vector(text: str) -> dict[str, float]:
 
 _OSCILLATION_WINDOW = 6
 _OSCILLATION_MIN_TRANSITIONS = 3
-_OSCILLATION_MIN_WINDOW = 2
 
 
 def detect_oscillation(map_history: list[str]) -> bool:
@@ -73,8 +72,6 @@ def detect_oscillation(map_history: list[str]) -> bool:
         True if oscillation is detected; False otherwise.
     """
     window = map_history[-_OSCILLATION_WINDOW:]
-    if len(window) < _OSCILLATION_MIN_WINDOW:
-        return False
     transitions = sum(
         1 for i in range(len(window) - 1) if window[i] != window[i + 1]
     )
