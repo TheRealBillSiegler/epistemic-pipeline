@@ -2,8 +2,13 @@
 
 Holds the four things the app reasons over:
 
-- claims: the beliefs B. A claim has a confidence in [0, 1] and a
+- claims: the accumulated belief archive. One row per claim, upserted by
+  id and never deleted. A claim has a confidence in [0, 1] and a
   source_type recording where it came from (inferred / user / derived).
+  This is a high-water archive, not one normalized distribution: the
+  single normalized vector for the latest document is what
+  worldview_update returns, and across documents that rate different
+  claims the confidences here can sum past 1.0.
 - observations: the evidence E. Append-only. Stores the Observation
   dataclass fields except `etype` (the app does not branch on evidence
   type yet); add that column when it does.
@@ -99,7 +104,7 @@ class Store:
         """Close the store when leaving the context."""
         self.close()
 
-    # --- claims (the beliefs B) ---
+    # --- claims (the accumulated belief archive) ---
 
     def put_claim(
         self,

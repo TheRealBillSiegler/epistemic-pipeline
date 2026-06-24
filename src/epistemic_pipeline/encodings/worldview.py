@@ -25,10 +25,14 @@ The LLM is non-deterministic, but R is pure: the LLM's confidence vector
 is recorded as an Observation before R runs, and R only ever reads from
 that recorded text. Replay is deterministic given the recorded trace.
 
-ponytail: claims are treated as one normalized distribution, mirroring
-the proven LLM-agent update. If independent per-claim beliefs (two
-claims both true at once) start to matter, switch B to per-claim
-Bernoulli and drop the renormalize.
+ponytail: R normalizes claims into one distribution per update,
+mirroring the proven LLM-agent update. This holds for what
+worldview_update returns, not for the persisted store. The store keeps
+one belief per concept and never deletes, so across documents that rate
+different concepts its confidences can sum past 1.0 -- by design, not a
+bug. If independent per-claim beliefs (two claims both true at once)
+start to matter, switch B to per-claim Bernoulli and drop the
+renormalize.
 """
 
 from __future__ import annotations

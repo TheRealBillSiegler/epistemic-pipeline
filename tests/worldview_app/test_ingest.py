@@ -124,6 +124,20 @@ class TestIngestDocument:
         assert store.history("user claim") == []  # no spurious zero-delta link
         assert store.observations() == []  # no dangling observation
 
+    def test_nonoverlapping_documents_accumulate_above_one(self, store):
+        # ARCHIVE contract: store.claims() is a high-water per-claim archive,
+        # not one normalized distribution. Two documents that rate disjoint
+        # concepts both persist, and their confidences sum past 1.0 by design.
+        ingest_document(
+            store, _llm({"A": 1.0}), "q", "d1", ts=1.0, seed=0, model_id="m"
+        )
+        ingest_document(
+            store, _llm({"B": 1.0}), "q", "d2", ts=2.0, seed=0, model_id="m"
+        )
+        rows = {r["id"]: r["confidence"] for r in store.claims()}
+        assert set(rows) == {"A", "B"}  # neither concept dropped
+        assert sum(rows.values()) > 1.0  # not normalized across docs, by design
+
 
 class TestNoteIngester:
     def test_unchanged_content_is_deduped(self, store):
