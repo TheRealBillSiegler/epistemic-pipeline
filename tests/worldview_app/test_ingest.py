@@ -4,11 +4,19 @@ import json
 
 import pytest
 
+from epistemic_pipeline.encodings.worldview import (
+    WorldviewBeliefs,
+    WorldviewOntology,
+    extraction_observation,
+    worldview_update,
+)
 from epistemic_pipeline.llm.llm_interfaces import LLMResponse, MockRatingLLM
 from epistemic_pipeline.worldview_app.ingest import (
     NoteIngester,
+    _replay_beliefs,  # pyright: ignore[reportPrivateUsage]  # testing the module's own helper
     author_claim,
     ingest_document,
+    ingest_rating,
 )
 from epistemic_pipeline.worldview_app.store import Store
 
@@ -169,6 +177,46 @@ class TestIngestDocument:
         rows = {r["id"]: r["confidence"] for r in store.claims()}
         assert set(rows) == {"A", "B"}  # neither concept dropped
         assert sum(rows.values()) > 1.0  # not normalized across docs, by design
+
+
+class TestReplayAndOrphanFilter:
+    def test_replay_matches_incremental_build(self, store):
+        # _replay_beliefs rebuilds B from the stored evidence trail. That
+        # rebuild must equal fusing the same ratings in memory -- the
+        # "B is a pure function of E" invariant the no-schema-change design
+        # rests on. Three overlapping documents exercise carry-forward,
+        # accumulation, and a new concept arriving, all at once.
+        ratings = [{"A": 0.6, "B": 0.2}, {"A": 0.9, "C": 0.4}, {"B": 0.5, "C": 1.0}]
+        for i, r in enumerate(ratings):
+            ingest_document(store, _llm(r), "q", f"d{i}", ts=float(i), seed=0, model_id="m")
+
+        ont = WorldviewOntology(concepts=frozenset(store.concepts()))
+        expected = WorldviewBeliefs({})
+        for i, r in enumerate(ratings):
+            obs = extraction_observation(r, float(i), "m", "h", 0)
+            expected = worldview_update(expected, obs, ont)
+
+        assert _replay_beliefs(store).opinions == expected.opinions
+
+    def test_non_finite_rating_leaves_no_orphan_concept(self, store):
+        # ingest_rating drops NaN/Inf before add_concept, so a non-finite value
+        # cannot leave an orphan concept in O with no belief behind it. Called
+        # directly: ingest_document's parser would strip the bad value first, so
+        # only the direct path exercises this guard.
+        result = ingest_rating(
+            store,
+            {"good": 0.8, "bad": float("inf")},
+            source_type="inferred",
+            ts=1.0,
+            model_id="m",
+            prompt_hash="h",
+            seed=0,
+            reason="r",
+        )
+        assert set(result) == {"good"}
+        assert store.has_concept("good") is True
+        assert store.has_concept("bad") is False
+        assert store.get_claim("bad") is None
 
 
 class TestNoteIngester:

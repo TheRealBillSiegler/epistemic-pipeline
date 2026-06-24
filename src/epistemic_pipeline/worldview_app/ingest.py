@@ -84,17 +84,20 @@ def _replay_beliefs(store: Store) -> WorldviewBeliefs:
 
     The store's ``claims.confidence`` column is a display cache of each
     opinion's projected probability; the authoritative belief state is the
-    confidence-vector observation trail. Replaying R over it reconstructs
-    the opinions, keeping the encoding's "B is a pure function of E"
-    invariant -- the store never holds the only copy of a belief.
+    confidence-vector observation trail. Replaying R reconstructs the
+    document-derived opinions, so the store is never the only copy of a
+    belief that came from a document. User-authored claims are the
+    exception: they write a confidence with no observation, so they live
+    outside E, and replay does not recover them (see ``author_claim``).
 
     The ontology is read here (the full, current concept set) rather than
     passed in: concepts are append-only, so the current set covers every
     concept any past observation named, and a caller cannot hand in a
     stale or narrowed ontology that would silently drop concepts.
 
-    ponytail: O(observations) per call. Fine for a personal corpus. If the
-    trail grows large, persist (r, s) on the claims row and skip the replay.
+    ponytail: O(observations) per call, so O(N^2) over a corpus ingested one
+    document at a time. Fine for a personal corpus. If the trail grows
+    large, persist (r, s) on the claims row and skip the replay.
 
     Args:
         store: the belief store.
@@ -231,7 +234,7 @@ def ingest_document(  # noqa: PLR0913
         source_type: 'inferred' (one-shot) or 'derived' (continuous).
 
     Returns:
-        The posterior confidence map that was persisted.
+        The map of moved concepts to their new projected probabilities.
     """
     known = tuple(store.concepts())
     response = llm.rate_confidence(question, known, document)
@@ -296,8 +299,8 @@ class NoteIngester:
             seed: the sampling seed used.
 
         Returns:
-            The persisted posterior map, or None if the note was skipped
-            because its content had not changed.
+            The map of moved concepts to their new projected probabilities,
+            or None if the note was skipped because its content was unchanged.
         """
         digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
         if self._seen.get(path) == digest:
