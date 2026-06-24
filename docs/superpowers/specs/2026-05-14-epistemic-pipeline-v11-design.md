@@ -1,8 +1,10 @@
 # Epistemic Pipeline v1.1 Design Specification
 
 **Date:** 2026-05-14
-**Status:** Implemented
+**Status:** Implemented (current baseline).
 **Delta from v1.0:** LLM-agent encoding (fifth expressiveness demonstration), trace persistence as JSONL, `epc` command-line interface (replay/diff/score), and a named use case for agent debugging.
+
+> **Partial supersession.** The worldview encoding's revision function described here — renormalize over the latest confidence vector, and drop any concept a new document omits — is **superseded** by [Worldview Encoding — Subjective Logic Design](2026-06-23-worldview-subjective-logic-design.md) (2026-06-23). That design does *not* erase a belief on omission. Everything else in this spec (LLM-agent encoding, JSONL traces, `epc` CLI) is current.
 
 ---
 

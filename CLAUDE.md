@@ -2,7 +2,7 @@
 
 ## Project
 
-A general-purpose reasoning architecture. Formal specs in `docs/superpowers/specs/`, Python reference implementation in `src/epistemic_pipeline/`. v0.1 design spec: `docs/superpowers/specs/2026-03-19-epistemic-pipeline-v01-design.md`.
+A general-purpose reasoning architecture. Formal specs in `docs/superpowers/specs/` (see its `README.md` index for what's current), Python reference implementation in `src/epistemic_pipeline/`. Current design spec: `docs/superpowers/specs/2026-05-14-epistemic-pipeline-v11-design.md`. Superseded specs/plans are under `archive/`.
 
 ## Writing Style
 
