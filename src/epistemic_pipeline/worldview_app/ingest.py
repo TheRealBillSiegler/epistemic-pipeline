@@ -171,7 +171,10 @@ def ingest_document(  # noqa: PLR0913
         source_type=source_type,
         ts=ts,
         model_id=model_id,
-        prompt_hash=_prompt_hash(question, document),
+        # Hash the full prompt the LLM saw -- question, known concepts, and
+        # document -- so two prompts that differ only in the known set do
+        # not collide to the same provenance record.
+        prompt_hash=_prompt_hash(question, *known, document),
         seed=seed,
         reason=reason or f"doc:{_prompt_hash(document)}",
     )
