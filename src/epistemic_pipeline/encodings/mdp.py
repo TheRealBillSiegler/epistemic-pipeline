@@ -16,7 +16,7 @@ from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 
 from epistemic_pipeline.meta import MetaController
-from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
+from epistemic_pipeline.pipeline import PipelineResult, identity_stage, run_pipeline
 from epistemic_pipeline.state import EpistemicState, Metadata, Observation
 
 
@@ -390,34 +390,6 @@ def mdp_frame(
     )
 
 
-def mdp_decompose(
-    state: EpistemicState[MDPOntology, MDPBeliefs],
-) -> EpistemicState[MDPOntology, MDPBeliefs]:
-    """Decompose stage: no-op. Value iteration has no sub-problems.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
-def mdp_model(
-    state: EpistemicState[MDPOntology, MDPBeliefs],
-) -> EpistemicState[MDPOntology, MDPBeliefs]:
-    """Model stage: no-op. Transition model is already in the ontology.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
 def mdp_select(
     state: EpistemicState[MDPOntology, MDPBeliefs],
 ) -> EpistemicState[MDPOntology, MDPBeliefs]:
@@ -479,20 +451,6 @@ def mdp_test(
     )
 
 
-def mdp_integrate(
-    state: EpistemicState[MDPOntology, MDPBeliefs],
-) -> EpistemicState[MDPOntology, MDPBeliefs]:
-    """Integrate stage: no-op. Policy is in beliefs.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
 def run_mdp_pipeline(
     problem: MDPProblem,
     meta_controller: MetaController | None = None,
@@ -515,11 +473,11 @@ def run_mdp_pipeline(
     return run_pipeline(
         initial_state=initial_state,
         stages=[
-            mdp_decompose,
-            mdp_model,
+            identity_stage,  # Decompose: value iteration has no sub-problems
+            identity_stage,  # Model: the transition model is already in the ontology
             mdp_select,
             mdp_test,
-            mdp_integrate,
+            identity_stage,  # Integrate: the policy is already in beliefs
         ],
         meta_controller=meta_controller,
     )

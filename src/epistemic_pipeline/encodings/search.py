@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
 from epistemic_pipeline.meta import MetaController
-from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
+from epistemic_pipeline.pipeline import PipelineResult, identity_stage, run_pipeline
 from epistemic_pipeline.state import EpistemicState, Metadata, Observation
 
 
@@ -253,34 +253,6 @@ def search_frame(
     )
 
 
-def search_decompose(
-    state: EpistemicState[SearchOntology, SearchBeliefs],
-) -> EpistemicState[SearchOntology, SearchBeliefs]:
-    """Decompose stage: no-op. No sub-goals for graph search.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
-def search_model(
-    state: EpistemicState[SearchOntology, SearchBeliefs],
-) -> EpistemicState[SearchOntology, SearchBeliefs]:
-    """Model stage: no-op. Revision policy set in Frame.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
 def search_select(
     state: EpistemicState[SearchOntology, SearchBeliefs],
 ) -> EpistemicState[SearchOntology, SearchBeliefs]:
@@ -345,20 +317,6 @@ def search_test(
     )
 
 
-def search_integrate(
-    state: EpistemicState[SearchOntology, SearchBeliefs],
-) -> EpistemicState[SearchOntology, SearchBeliefs]:
-    """Integrate stage: the best path is in beliefs. Pass-through.
-
-    Args:
-        state: current epistemic state.
-
-    Returns:
-        State unchanged.
-    """
-    return state
-
-
 def run_search_pipeline(
     problem: SearchProblem,
     meta_controller: MetaController | None = None,
@@ -381,11 +339,11 @@ def run_search_pipeline(
     return run_pipeline(
         initial_state=initial_state,
         stages=[
-            search_decompose,
-            search_model,
+            identity_stage,  # Decompose: no sub-goals for graph search
+            identity_stage,  # Model: revision policy is set in Frame
             search_select,
             search_test,
-            search_integrate,
+            identity_stage,  # Integrate: the best path is already in beliefs
         ],
         meta_controller=meta_controller,
     )

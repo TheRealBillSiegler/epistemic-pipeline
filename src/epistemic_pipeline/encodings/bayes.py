@@ -8,13 +8,11 @@ The revision policy applies Bayes' theorem to update beliefs given each observat
 
 from dataclasses import dataclass, replace
 
+from epistemic_pipeline.encodings._confidence import detect_oscillation
 from epistemic_pipeline.meta import MetaController
-from epistemic_pipeline.pipeline import PipelineResult, run_pipeline
+from epistemic_pipeline.pipeline import PipelineResult, identity_stage, run_pipeline
 from epistemic_pipeline.state import EpistemicState, Metadata, Observation
 
-_OSCILLATION_WINDOW = 6
-_OSCILLATION_MIN_TRANSITIONS = 3
-_OSCILLATION_MIN_WINDOW = 2
 _HIGH_CONFIDENCE_THRESHOLD = 0.8
 
 
@@ -127,29 +125,6 @@ def bayes_argmax(beliefs: BayesBeliefs) -> str:
     return max(beliefs.probabilities, key=lambda h: beliefs.probabilities[h])
 
 
-def _detect_oscillation(map_history: list[str]) -> bool:
-    """Check for oscillation: MAP hypothesis changes >= 3 times in last 6 steps.
-
-    map_history contains the MAP hypothesis name after each evidence step.
-    A change is when consecutive entries differ. A single flip is normal
-    belief evolution. Three flips in six steps means the evidence is
-    pushing beliefs back and forth without convergence.
-
-    Args:
-        map_history: MAP hypothesis name after each evidence step.
-
-    Returns:
-        True if oscillation is detected; False otherwise.
-    """
-    window = map_history[-_OSCILLATION_WINDOW:]
-    if len(window) < _OSCILLATION_MIN_WINDOW:
-        return False
-    transitions = sum(
-        1 for i in range(len(window) - 1) if window[i] != window[i + 1]
-    )
-    return transitions >= _OSCILLATION_MIN_TRANSITIONS
-
-
 def _detect_contradiction(
     obs: Observation,
     prior_evidence: tuple[Observation, ...],
@@ -237,30 +212,6 @@ def bayes_frame(
     )
 
 
-def bayes_decompose(
-    state: EpistemicState[BayesOntology, BayesBeliefs],
-) -> EpistemicState[BayesOntology, BayesBeliefs]:
-    """Decompose stage: no-op for Bayesian inference.
-
-    Bayesian updating does not require sub-problem decomposition.
-    """
-    return state
-
-
-def bayes_model(
-    state: EpistemicState[BayesOntology, BayesBeliefs],
-) -> EpistemicState[BayesOntology, BayesBeliefs]:
-    """Model stage: no-op. Priors and revision policy are set in Frame."""
-    return state
-
-
-def bayes_select(
-    state: EpistemicState[BayesOntology, BayesBeliefs],
-) -> EpistemicState[BayesOntology, BayesBeliefs]:
-    """Select stage: evidence order is already set in Frame metadata."""
-    return state
-
-
 def bayes_test(
     state: EpistemicState[BayesOntology, BayesBeliefs],
 ) -> EpistemicState[BayesOntology, BayesBeliefs]:
@@ -293,7 +244,7 @@ def bayes_test(
         ):
             anomalies.append("contradiction")
 
-        if _detect_oscillation(map_history):
+        if detect_oscillation(map_history):
             anomalies.append("oscillation")
 
     return replace(
@@ -306,18 +257,6 @@ def bayes_test(
             anomalies=tuple(anomalies),
         ),
     )
-
-
-def bayes_integrate(
-    state: EpistemicState[BayesOntology, BayesBeliefs],
-) -> EpistemicState[BayesOntology, BayesBeliefs]:
-    """Integrate stage: posterior is already in beliefs.
-
-    In v0.1, integration is a pass-through. The posterior distribution
-    is in state.beliefs. Future versions will add confidence metrics
-    and explanation generation.
-    """
-    return state
 
 
 @dataclass(frozen=True)
@@ -360,11 +299,11 @@ def run_bayesian_pipeline(
     return run_pipeline(
         initial_state=initial_state,
         stages=[
-            bayes_decompose,
-            bayes_model,
-            bayes_select,
+            identity_stage,  # Decompose: Bayesian updating needs no sub-problems
+            identity_stage,  # Model: priors and revision policy are set in Frame
+            identity_stage,  # Select: evidence order is set in Frame metadata
             bayes_test,
-            bayes_integrate,
+            identity_stage,  # Integrate: the posterior is already in beliefs
         ],
         meta_controller=meta_controller,
     )

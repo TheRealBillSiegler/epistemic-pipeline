@@ -48,3 +48,34 @@ def parse_confidence_vector(text: str) -> dict[str, float]:
         if math.isfinite(number):
             result[name] = number
     return result
+
+
+_OSCILLATION_WINDOW = 6
+_OSCILLATION_MIN_TRANSITIONS = 3
+_OSCILLATION_MIN_WINDOW = 2
+
+
+def detect_oscillation(map_history: list[str]) -> bool:
+    """Return True if the top hypothesis flips at least three times.
+
+    ``map_history`` holds the argmax (the MAP, or most-probable) hypothesis
+    after each step. A flip is a change between consecutive entries. One flip
+    is normal belief evolution; three flips inside a six-step window means the
+    evidence is pushing beliefs back and forth instead of converging.
+
+    Shared by the encodings that track a top hypothesis over time (Bayes and
+    the LLM agent), so the check lives here once instead of being copied.
+
+    Args:
+        map_history: the argmax hypothesis recorded after each step.
+
+    Returns:
+        True if oscillation is detected; False otherwise.
+    """
+    window = map_history[-_OSCILLATION_WINDOW:]
+    if len(window) < _OSCILLATION_MIN_WINDOW:
+        return False
+    transitions = sum(
+        1 for i in range(len(window) - 1) if window[i] != window[i + 1]
+    )
+    return transitions >= _OSCILLATION_MIN_TRANSITIONS
