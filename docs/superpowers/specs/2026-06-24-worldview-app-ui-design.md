@@ -23,15 +23,15 @@ You point the app at your notes — say, an Obsidian vault. The pipeline reads t
 
 ## 1. What it is for
 
-The job, in one line: **drop your knowledge in, see what you actually believe and how sure you can honestly be, and watch it update — rigorously — as new information arrives.**
+**Worldview is a sense-making tool for your data.** It turns what you've collected — notes, reports, tables — into the beliefs your data actually supports, shows how firmly each is supported, and is honest about what you've never really looked into. It helps you make sense of new information: what it means for what you already hold, and how you should update. And it turns that honesty on *you* — it exposes beliefs held more firmly than the evidence earns: the echo repeated without question, the conviction resting on one weak source, the claim your own data contradicts. **It never tells you what is true. It shows you what your evidence supports, and how sure you can honestly be — and you decide.**
 
-Your notes are the starting evidence. The pipeline turns them into a set of beliefs, each carrying its own honest uncertainty. New information runs through the same pipeline and shows up as a *change* to that worldview.
+The engine is **corpus-agnostic**: a personal vault is the first target, business/client data a later skin — same `(O, E, B, R)`. And data never speaks for itself, so the engine separates **measurement** (what the data literally says — "Q4 = $2.1B") from **interpretation** (the claim someone reads it to support — "growth is sustainable"). Interpretation is the sense-making step: a *recorded, uncertain, contestable* reading — proposed with its warrant and its alternatives, never asserted as fact. Over-reading the data is the number-one unjust belief, and separating the two is how the tool exposes it.
 
 This combination is the open niche. The [landscape research](../../research/2026-06-24-worldview-credibility-and-landscape.md#part-b--positioning-the-open-niche) found no tool that has all four of:
 
 - per-claim **graded uncertainty** that tells *unexamined* from *split*,
 - a per-claim **replayable evidence trail**,
-- beliefs **inferred from your notes** (not hand-typed predictions), and
+- beliefs **inferred from your data** (not hand-typed predictions), and
 - a **deterministic, replayable update** over a recorded reading of the new information (the preview equals the commit).
 
 Argument maps have the claim graph but no confidence. Forecasting tools have confidence-over-time but no corpus and no evidence links. Note tools detect some contradictions but carry only coarse confidence. We are the combination.
@@ -61,7 +61,7 @@ The user is not a Subjective-Logic mathematician. Every term on screen is plain.
 |---|---|
 | corpus / vault | **your notes** — the body of notes the app reads |
 | claim / concept | a **belief** (a single statement that can be true or false) |
-| projected probability `P` | **how sure** — a percentage |
+| projected probability `P` | **how supported** — a percentage; the weight of claims for vs against, from named sources |
 | uncertainty mass `u` | **how settled** — shown as `1 − u`, so plenty of agreeing evidence reads "well-settled" and none reads "you haven't looked into this" |
 | vacuous opinion (`u = 1`) | "**you haven't looked into this**" |
 | balanced (`u ≈ 0.5`, `P ≈ 0.5`) | "**your notes pull both ways**" — genuinely split, not unexamined |
@@ -85,12 +85,12 @@ Every term is defined once, on first use, in the UI itself.
 
 The atomic object is **one belief** (one claim). Each note is broken into claims; each belief gets a small case file — the **dossier** — which is just its `(O, E, B, R)` slice, in plain words:
 
-- **The belief** — the statement itself, plus *how sure* and *how settled* it is.
+- **The belief** — the statement itself, plus *how supported* and *how settled* it is.
 - **The evidence** — what your notes say for it and against it, each tagged with where it came from (`E`).
 - **How it got here** — the history: every source that moved it, and by how much (`R` over the trail).
 - **Where it sits** — its topic, and any flags: "your notes disagree here" or "new territory" (`O`, norms, meta).
 
-The home screen is the list of beliefs; opening one shows its dossier. That is the pipeline made walkable, and it stays legible: *here is a thing you believe, here is why, here is what argues against it, here is how sure you can honestly be.*
+The home screen is the list of beliefs; opening one shows its dossier. That is the pipeline made walkable, and it stays legible: *here is a thing you believe, here is why, here is what argues against it, here is how well your evidence supports it.*
 
 ---
 
@@ -110,7 +110,7 @@ This is the hero. You hand the pipeline **one candidate** — an article — and
 
 - **Confirms** — "you already leaned this way; now you are more settled." (more evidence-for)
 - **New territory** — "you had no belief about this yet; this opens one." (the candidate names concepts not yet in your worldview — a preview-time difference, computable here; *not* the Power norm, which is inert while the ontology auto-grows — see [§9](#9-the-hard-parts-stated-honestly))
-- **Challenges** — "this pushes against something you hold; how sure you are should *drop*." (evidence-against)
+- **Challenges** — "this pushes against something you hold; how supported it is should *drop*." (evidence-against)
 - **Contradicts** — "this directly disagrees with your note from before." (the Meta layer)
 - **Reverses** — "enough pushback to flip your lean."
 
@@ -182,6 +182,18 @@ In the dossier this reads plainly: each piece of evidence shows *its kind* and *
 - **Vault safety.** Write-back is additive-only and confirmation-gated ([§5.3](#53-reconciling-the-vault-write-back--additive-only)). Never auto-rewrite a user's notes.
 - **User-authored beliefs sit outside the evidence trail.** A claim the user states directly has a stored confidence but no observation, so it does not replay and has no drift history until a document rates it. The UI shows these as a distinct kind ("you stated this") rather than pretending an evidence trail exists.
 
+### 9.1 The honesty ceiling — omission, and the walls
+
+The pipeline can be near-fully honest about the evidence it *has*. It cannot be fully honest about what it *hasn't seen*. Verified in the [honesty research](../../research/2026-06-25-honest-pipeline-omission-frontier.md). The ceiling is **honesty-as-process, not verdict**: coherence with its own evidence is reachable; correspondence with truth is not guaranteed by any internal process. The app claims the first and disclaims the second.
+
+Three walls the UI must *name*, not hide:
+
+- **The system's own confidence can't find its worst blind spots.** Confident-but-wrong beliefs sit far from the boundary, so the uncertainty mass misses unknown-unknowns by construction. "I can be confidently wrong" is a real state.
+- **One-sided-but-true beats every falsehood check.** A belief can be fully sourced, every claim true, and still be a lie of selection. Truth-checking cannot catch it; it needs an explicit one-sidedness/coverage check — for which no validated method yet exists (the open frontier).
+- **No internal process guarantees a correct verdict** over incomplete, ambiguous information.
+
+So omission-honesty is an **explicit, separately-measured, never-finished target**, not a box to tick. The implementable levers — a sufficiency signal separate from the belief, three-axis abstain (vague query / thin belief / values), a disconfirmation-first scoring scaffold, an active question/evidence-gathering loop — are catalogued in the research and slated as the honesty track ([§12](#12-in-design-this-sessions-threads)).
+
 ---
 
 ## 10. Migration (decomposition with standalone value)
@@ -190,7 +202,7 @@ Each unit states what lands, what works after it alone, and what it needs. Indep
 
 **Unit 1 — The window spine.**
 - *Ships:* read-only `worldview-server` + static page; the belief list and the claim dossier with honest uncertainty; the no-LLM write paths (state a belief; drop a direct rating).
-- *Standalone value:* a running app where you watch how-sure **and** how-settled move, and see *unexamined* differ from *split*, with zero LLM setup.
+- *Standalone value:* a running app where you watch how-supported **and** how-settled move, and see *unexamined* differ from *split*, with zero LLM setup.
 - *Depends on:* store (#6), ingestion (#8) — both shipped.
 
 **Unit 2 — Run-by / preview (the front door).**
@@ -244,8 +256,20 @@ The same standard as the SL design: trust lives in the process, not the verdict.
 2. **Graded credibility is labelled "not yet calibrated"** until Unit 9 measures it (C5, C6).
 3. **The vault is never auto-rewritten** — write-back stays additive and confirmation-gated (§5.3).
 4. **Every on-screen number traces to a pipeline computation** — the §2 law holds in code (no rigor in the window).
+5. **Omission is named, not hidden** — the app surfaces "I might be missing something," "this rests on a choice I made," and "I can be confidently wrong," and never issues a true/false verdict ([§9.1](#91-the-honesty-ceiling--omission-and-the-walls)).
 
 Until then the app is an honest window on a partially-built engine — the right shape, openly bounded — not a finished product that "tells you what to believe."
+
+---
+
+## 12. In design (this session's threads)
+
+Settled in direction and being folded in; they extend, not replace, §§1–11. Each gets full unit treatment in the next plan pass — recorded here so the spec stays ahead of the build, honestly.
+
+- **Validation = weigh and gather, never a verdict.** "Validate this" means: weigh new information against your evidence, optionally *gather more* (including external sources, as weighted evidence with their own credibility), and show the better-supported belief with honest uncertainty. The app never stamps a claim true or false. External evidence-gathering is a gated later unit.
+- **Insights (expose-unjust) as a computed layer.** Structural observations over `(O, E, B, R)` + the trace — shared-source fragility, unnoticed tensions, confident-but-thin clusters, dependency chains — each a real query, never an LLM hunch. A unit alongside contradictions (§5).
+- **Measurement → interpretation → belief** in the evidence model. Structured data (tables) needs an explicit, recorded, contestable interpretation step before it becomes a claim ([§1](#1-what-it-is-for)). This is the heavier ingestion front-end the business/data corpus needs; the personal/text path stays the lean first target.
+- **The omission-honesty track** ([§9.1](#91-the-honesty-ceiling--omission-and-the-walls)): a sufficiency signal, three-axis abstain, disconfirmation-first scoring, an active evidence-gathering loop, and the (still-unsolved) one-sidedness detector. Each becomes a unit once its pipeline signal is real.
 
 ---
 
@@ -253,4 +277,5 @@ Until then the app is an honest window on a partially-built engine — the right
 
 - Belief math: [Worldview Encoding — Subjective Logic Design](2026-06-23-worldview-subjective-logic-design.md)
 - Stage-3 grounding + niche: [Worldview app: evidence-credibility grounding and prior-art landscape](../../research/2026-06-24-worldview-credibility-and-landscape.md)
+- Honesty ceiling / omission frontier: [How honest can the pipeline be?](../../research/2026-06-25-honest-pipeline-omission-frontier.md)
 - Server spine detail: [Worldview Browser UI Implementation Plan](../plans/2026-06-24-worldview-ui-plan.md)
