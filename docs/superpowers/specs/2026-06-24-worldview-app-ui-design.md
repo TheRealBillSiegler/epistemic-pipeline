@@ -13,9 +13,9 @@ You point the app at your notes — say, an Obsidian vault. The pipeline reads t
 
 **The law (read this first):** the app is a **window**; the **pipeline applies the rigor**. The app never judges, scores, or revises. It only shows what the pipeline computed. We make that a structural fact, not a promise: the app has no belief logic, so it *cannot* fake rigor. See [§2](#2-the-law-the-app-is-a-window-the-pipeline-applies-the-rigor).
 
-**The hero interaction** is "run-by": drop one new thing, see the exact, deterministic effect on your worldview, decide. Because the revision rule `R` is pure, the preview *is* the commit — no surprise. See [§5.2](#52-run-by--the-front-door).
+**The hero interaction** is "run-by": drop one new thing and see its effect on your worldview before you commit. Once the app has *read* the new thing, that effect is exact — the revision rule `R` is pure, so the preview *is* the commit, bit-identical, no surprise. (Reading the article is the one step the app does fresh each time.) See [§5.2](#52-run-by--the-front-door).
 
-**The headline only this architecture can show:** "I have no evidence about this" is *not* "the evidence is split." A single confidence number hides that; Subjective Logic carries it as an explicit uncertainty. The whole UI is built to make that distinction visible.
+**The headline only this architecture can show:** "I haven't looked into this" is *not* "my notes pull both ways." A single percentage hides that difference; Subjective Logic carries it as an explicit uncertainty. The whole UI is built to make it visible.
 
 **Done when:** Unit 1 ([§10](#10-migration-decomposition-with-standalone-value)) ships a running window over the existing belief store, the run-by preview lands (Unit 2), and each later view appears only once the pipeline layer behind it genuinely computes its result.
 
@@ -25,14 +25,14 @@ You point the app at your notes — say, an Obsidian vault. The pipeline reads t
 
 The job, in one line: **drop your knowledge in, see what you actually believe and how sure you can honestly be, and watch it update — rigorously — as new information arrives.**
 
-Your vault is the "prior corpus." The pipeline turns it into a set of beliefs, each carrying its own honest uncertainty. New information is run through the same pipeline and shown as a *change* to that worldview.
+Your notes are the starting evidence. The pipeline turns them into a set of beliefs, each carrying its own honest uncertainty. New information runs through the same pipeline and shows up as a *change* to that worldview.
 
 This combination is the open niche. The [landscape research](../../research/2026-06-24-worldview-credibility-and-landscape.md#part-b--positioning-the-open-niche) found no tool that has all four of:
 
-- per-claim **graded uncertainty** that tells *unverified* from *balanced*,
+- per-claim **graded uncertainty** that tells *unexamined* from *split*,
 - a per-claim **replayable evidence trail**,
-- beliefs **inferred from a corpus** (not hand-typed predictions), and
-- a **deterministic preview** of how new information updates beliefs.
+- beliefs **inferred from your notes** (not hand-typed predictions), and
+- a **deterministic, replayable update** over a recorded reading of the new information (the preview equals the commit).
 
 Argument maps have the claim graph but no confidence. Forecasting tools have confidence-over-time but no corpus and no evidence links. Note tools detect some contradictions but carry only coarse confidence. We are the combination.
 
@@ -59,13 +59,15 @@ The user is not a Subjective-Logic mathematician. Every term on screen is plain.
 
 | What the pipeline calls it | What the screen says |
 |---|---|
+| corpus / vault | **your notes** — the body of notes the app reads |
 | claim / concept | a **belief** (a single statement that can be true or false) |
 | projected probability `P` | **how sure** — a percentage |
-| uncertainty mass `u` | **how settled** — high `u` reads "barely looked into" |
+| uncertainty mass `u` | **how settled** — shown as `1 − u`, so plenty of agreeing evidence reads "well-settled" and none reads "you haven't looked into this" |
 | vacuous opinion (`u = 1`) | "**you haven't looked into this**" |
 | balanced (`u ≈ 0.5`, `P ≈ 0.5`) | "**your notes pull both ways**" — genuinely split, not unexamined |
 | belief `b` / disbelief `d` | support **for** / support **against** |
 | evidence / observation | "**what a note says**" / a **source** |
+| the model / LLM | "**the reader**" — the AI that reads your notes |
 | evidence link / `delta` | "**what moved it**" — the change one source made |
 | ontology / concept set | "**the things you have beliefs about**" / your topics |
 | revision `R` | **update** |
@@ -94,9 +96,9 @@ The home screen is the list of beliefs; opening one shows its dossier. That is t
 
 ## 5. Two ways information meets the pipeline
 
-### 5.1 Sync (the standing corpus)
+### 5.1 Sync (your standing notes)
 
-Your vault is the standing evidence. Notes commit into `E`; beliefs settle into `B`. Ingestion already exists (#8): each note becomes a recorded confidence-vector observation, and `R` accumulates it. The app reads the resulting beliefs.
+Your notes are the standing evidence. Each note commits into `E`; beliefs settle into `B`. Ingestion already exists (#8): each note becomes a recorded source (a confidence-vector observation, in engine terms), and `R` accumulates it. The app reads the resulting beliefs.
 
 ### 5.2 Run-by (the front door)
 
@@ -107,8 +109,8 @@ This is the hero. You hand the pipeline **one candidate** — an article — and
 **The impact report**, in plain words, sorts the effect into the cases that matter:
 
 - **Confirms** — "you already leaned this way; now you are more settled." (more evidence-for)
-- **New territory** — "you had no belief here; this opens one." (the Norms layer's unknown-concept signal)
-- **Challenges** — "this pushes against something you hold; your confidence should *drop*." (evidence-against)
+- **New territory** — "you had no belief about this yet; this opens one." (the candidate names concepts not yet in your worldview — a preview-time difference, computable here; *not* the Power norm, which is inert while the ontology auto-grows — see [§9](#9-the-hard-parts-stated-honestly))
+- **Challenges** — "this pushes against something you hold; how sure you are should *drop*." (evidence-against)
 - **Contradicts** — "this directly disagrees with your note from before." (the Meta layer)
 - **Reverses** — "enough pushback to flip your lean."
 
@@ -150,10 +152,10 @@ Each unit makes a pipeline layer genuinely compute its result, then the window r
 | Cognitive Process | the claims found in a note | **partial** — LLM extraction exists, thin |
 | Pipeline `(O,E,B,R)` | the belief + its dossier + honest uncertainty; the run-by preview | **live** |
 | Meta-Epistemic | "your notes disagree here" | exists generically, **not wired** to worldview |
-| Norms | "new territory" | exists generically, **not wired** to worldview |
+| Norms | "new territory" | the preview-time concept diff is live in run-by; the Power-norm check over committed notes is **inert** while the ontology auto-grows (deferred) |
 | Credibility (stage 3) | "this counted more — it cites a source" | **deferred** (slot exists, off) |
 
-Build order: the `(O,E,B,R)` window first, then the run-by preview, then the drift history, then real-LLM vault ingestion, then contradictions + gaps (wire meta + norms), then evidence credibility, then scale, then calibration. Contradictions come before credibility because conflict is computable from the existing `r`/`s` counts with no new external signal, while credibility needs the grounding work in [§8](#8-stage-3--evidence-credibility-how-honestly).
+Build order of the rigor-stage spine: the `(O,E,B,R)` window first, then the run-by preview, then the drift history, then real-LLM vault ingestion, then contradictions (wire the Meta layer), then evidence credibility, then calibration. Contradictions come before credibility because conflict is computable from the existing `r`/`s` counts with no new external signal, while credibility needs the grounding work in [§8](#8-stage-3--evidence-credibility-how-honestly). Two units sit off this spine and slot in by dependency, not sequence: write-back (Unit 7, after vault + accept) and scale (Unit 8, after the window). The contradictions-after-ingestion placement is a sequencing choice, not a dependency — contradictions are independent of vault ingestion and could land earlier (see [§10](#10-migration-decomposition-with-standalone-value)).
 
 ---
 
@@ -175,7 +177,7 @@ In the dossier this reads plainly: each piece of evidence shows *its kind* and *
 ## 9. The hard parts (stated honestly)
 
 - **Credibility is auditable before it is correct.** A weight that traces to (recorded type + quote + fixed policy) is transparent today. Whether the weight is *right* is calibration, which is deferred (C6). The UI must not imply graded evidence is validated before it is.
-- **Extraction quality.** Breaking a note into claims is an LLM step; it is non-deterministic and imperfect. The pipeline records its output so `R` stays pure and replayable, but a bad extraction yields a bad belief. Honest framing in the UI ("the model read this as…") rather than false authority.
+- **Extraction quality.** Breaking a note into claims is an LLM step; it is non-deterministic and imperfect. The pipeline records its output so `R` stays pure and replayable, but a bad extraction yields a bad belief. Honest framing in the UI ("the reader read this as…") rather than false authority.
 - **Scale.** A pre-existing vault can be 5000+ beliefs on day one. The answer is a ranked, searchable, windowed list — *not* hierarchical clustering, which has nothing to cluster on (concepts are flat strings with no taxonomy). Clustering stays an optional later enhancement.
 - **Vault safety.** Write-back is additive-only and confirmation-gated ([§5.3](#53-reconciling-the-vault-write-back--additive-only)). Never auto-rewrite a user's notes.
 - **User-authored beliefs sit outside the evidence trail.** A claim the user states directly has a stored confidence but no observation, so it does not replay and has no drift history until a document rates it. The UI shows these as a distinct kind ("you stated this") rather than pretending an evidence trail exists.
@@ -188,13 +190,13 @@ Each unit states what lands, what works after it alone, and what it needs. Indep
 
 **Unit 1 — The window spine.**
 - *Ships:* read-only `worldview-server` + static page; the belief list and the claim dossier with honest uncertainty; the no-LLM write paths (state a belief; drop a direct rating).
-- *Standalone value:* a running app where you watch confidence **and** uncertainty move, and see *unverified* differ from *balanced*, with zero LLM setup.
+- *Standalone value:* a running app where you watch how-sure **and** how-settled move, and see *unexamined* differ from *split*, with zero LLM setup.
 - *Depends on:* store (#6), ingestion (#8) — both shipped.
 
 **Unit 2 — Run-by / preview (the front door).**
-- *Ships:* a preview endpoint that runs `R` over a candidate without appending it, returns the impact report (confirms / new / challenges / contradicts-stub / reverses), and an accept/reject control.
-- *Standalone value:* the hero loop — drop new info, see exactly what it changes, decide.
-- *Depends on:* Unit 1.
+- *Ships:* a preview endpoint that runs `R` over a *candidate observation* without appending it, returns the impact report, and an accept/reject control. Live cases: **confirms / new territory / challenges / reverses** (all computable from `R` plus a concept-set diff). The **contradicts** case is stubbed until Unit 5 wires the Meta layer.
+- *Standalone value:* run a directly-entered candidate rating by your worldview and see the exact, reversible diff — keep it or not. (The headline experience of dropping a real *article* needs the extraction step in Unit 4; with Unit 1 alone the candidate is hand-supplied.)
+- *Depends on:* Unit 1. Real-article input depends on Unit 4.
 
 **Unit 3 — Drift history.**
 - *Ships:* a per-belief timeline of confidence over time with a marker per evidence event, reconstructed by walking *backward* from the current cached confidence (correct for user-authored starts).
@@ -202,14 +204,15 @@ Each unit states what lands, what works after it alone, and what it needs. Indep
 - *Depends on:* Unit 1.
 
 **Unit 4 — Vault + real-LLM ingestion.**
-- *Ships:* a vault-folder reader and a concrete real-model `RatingLLMInterface` (with key handling via env); the document path for both sync and run-by.
-- *Standalone value:* point at a real Obsidian vault and run a real article by it.
-- *Depends on:* Unit 1; feeds Unit 2's text path.
+- *Ships:* a vault-folder reader and a concrete real-model `RatingLLMInterface` (with key handling via env); the document→candidate extraction path for both sync and run-by.
+- *Standalone value:* point at a real Obsidian vault, and complete the run-by hero — drop a real *article* and preview its effect (the article-input half of Unit 2).
+- *Depends on:* Unit 1; completes Unit 2's article path.
 
-**Unit 5 — Contradictions + gaps (wire Meta + Norms to worldview).**
-- *Ships:* worldview-specific anomaly detection (heavy `r` *and* `s` = conflict; sign reversal = flip) and the Power-norm adequacy check, surfaced as "your notes disagree" and "new territory."
-- *Standalone value:* contradictions and gaps become actionable prompts.
+**Unit 5 — Contradictions (wire the Meta layer to worldview).**
+- *Ships:* worldview-specific anomaly detection (heavy `r` *and* `s` on one belief = conflict; sign reversal = flip), surfaced as "your notes disagree here."
+- *Standalone value:* contradictions across your notes become actionable prompts.
 - *Depends on:* Unit 1; independent of Units 2–4.
+- *Note:* "new territory" is already covered at preview time in Unit 2 (a concept-set diff). The Power-norm adequacy check is **not** shipped here — it is inert while ingestion auto-grows the ontology (every rated claim becomes a concept before `R` runs), so it would surface a flag the pipeline never computes, which [§2](#2-the-law-the-app-is-a-window-the-pipeline-applies-the-rigor) forbids. A real adequacy signal needs a locked-ontology mode, deferred until a unit calls for it.
 
 **Unit 6 — Evidence credibility (stage 3, C1–C4).**
 - *Ships:* LLM evidence-type classification → ranked types → ROC weights → SL discount; the dossier shows "counted more/less, and why."
@@ -229,7 +232,7 @@ Each unit states what lands, what works after it alone, and what it needs. Indep
 **Unit 9 — Calibration (the judge; verification gate).**
 - *Ships:* proper-scoring (Brier/log, Murphy decomposition) over claims that later resolve; the go/no-go for trusting graded credibility (C6).
 - *Standalone value:* evidence that the credibility policy earns its keep — or does not.
-- *Depends on:* Unit 6.
+- *Depends on:* Unit 6 (the graded policy to test), Unit 2 (the commit path that applies graded updates), and Unit 3 (the per-belief trajectory the scoring reads). Resolved-claim outcomes come from user resolution or the drift trail.
 
 ---
 
@@ -237,7 +240,7 @@ Each unit states what lands, what works after it alone, and what it needs. Indep
 
 The same standard as the SL design: trust lives in the process, not the verdict. Do not present the app as giving validated, credibility-weighted beliefs until:
 
-1. **Uncertainty is shown honestly** — the *unverified vs balanced* distinction is visible, not collapsed to one number (Unit 1).
+1. **Uncertainty is shown honestly** — the *unexamined vs split* distinction is visible, not collapsed to one number (Unit 1).
 2. **Graded credibility is labelled "not yet calibrated"** until Unit 9 measures it (C5, C6).
 3. **The vault is never auto-rewritten** — write-back stays additive and confirmation-gated (§5.3).
 4. **Every on-screen number traces to a pipeline computation** — the §2 law holds in code (no rigor in the window).
