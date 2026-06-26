@@ -102,6 +102,14 @@ No existing tool combines all four of the worldview app's ingredients. Each cous
 - **Credibility calibration (C6)** — the validation that turns the graded policy from "transparent" into "earned." Deferred; this is the project's trust-gate work.
 - **The evidence-type taxonomy and its ranking (C2/C3)** — the exact category set and order are not yet fixed.
 
+## Faithfulness audit (2026-06-25)
+
+A later concept-misuse audit (verified) judged the borrowed instruments **defensible adaptations, not misuses** — with caveats that bound the borrowed authority. The pattern: borrowed *authority* does not transfer to *correctness*; each weight must be earned by calibration. See the [omission frontier](2026-06-25-honest-pipeline-omission-frontier.md).
+
+- **GRADE (C1) — borrow the *shape*, not the warrant.** GRADE grades the certainty of a whole *body* of evidence for an *outcome*; several of its factors (inconsistency, publication bias) have no single-item analogue. So GRADE's published defensibility does **not** license a per-item reliability weight — only its transparent, type-anchored, auditable *structure* transfers. A per-item weight is earned by calibration (C6), not by GRADE's name.
+- **ROC (C2) — not a neutral default.** ROC's numbers are the centroid of the ranking-constrained simplex — the expected weight under a *uniform prior* over all orderings-consistent weight vectors. That prior, and ROC's simulated edge over Rank-Sum, are conditional on the true-weight distribution (Roberts & Goodwin 2002). Choosing ROC over Rank-Sum or a hand-tuned table is itself a modeling assumption to validate by calibration.
+- **ECE (C6) — not the standalone judge.** ECE is not a proper score: it is binning-dependent, and a non-informative base-rate predictor drives it to ~0. Use the proper scores (Brier/log) and the Murphy *reliability* term as the primary calibration metric; treat ECE only as a supplementary, binning-disclosed diagnostic.
+
 ## Method
 
 Two deep-research passes (evidence-credibility grounding; prior-art landscape), each: decompose → parallel web search → fetch sources → extract claims. The harness's adversarial-verify phase was rate-limited (every vote abstained → a false "all refuted" verdict), so a separate pass re-verified the 14 load-bearing claims against their primary sources, one skeptical agent per claim. Outcome: 12 supported, 2 partial (corrected inline: the stance F1 range; the TMS replay/label scope), 1 refuted-citation (the calibration source, corrected to Murphy/Bröcker). Provenance: workflow transcripts, 2026-06-24.

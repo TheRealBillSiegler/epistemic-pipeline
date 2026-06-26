@@ -184,7 +184,7 @@ In the dossier this reads plainly: each piece of evidence shows *its kind* and *
 
 ### 9.1 The honesty ceiling — omission, and the walls
 
-The pipeline can be near-fully honest about the evidence it *has*. It cannot be fully honest about what it *hasn't seen*. Verified in the [honesty research](../../research/2026-06-25-honest-pipeline-omission-frontier.md). The ceiling is **honesty-as-process, not verdict**: coherence with its own evidence is reachable; correspondence with truth is not guaranteed by any internal process. The app claims the first and disclaims the second.
+The pipeline can be near-fully honest about the evidence it *has*. It cannot be fully honest about what it *hasn't seen*. Verified in the [honesty research](../../research/2026-06-25-honest-pipeline-omission-frontier.md). The ceiling is **honesty-as-process, not verdict**: coherence with its own evidence is reachable; correspondence with truth is not guaranteed by any internal process. The app claims the first and disclaims the second. ("Coherence" here means a belief's consistency with its own evidence — the realist reading, *not* the coherence *theory of truth*; a coherent, process-honest belief can still be one-sided or wrong.)
 
 Three walls the UI must *name*, not hide:
 
