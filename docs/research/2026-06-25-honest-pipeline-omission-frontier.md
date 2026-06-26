@@ -66,11 +66,13 @@ So a metacognitive "could you be wrong?" pass and multi-agent red-team debate ar
 
 One deep-research pass (5 angles: omission/sufficiency · disconfirmation/one-sidedness · calibration/abstention · provenance · epistemic foundations), 25 sources → 119 claims → top 25 adversarially verified (3 votes each): 21 confirmed, 4 refuted. Caveat: the sharpest omission sources (InfoGatherer, PassiveQA, Ren et al., Epistemic Bias Injection) are fresh 2026 arXiv preprints, unreplicated — treat their numbers as provisional and their mechanisms as candidates. Peer-reviewed anchors (TACL 2022/2025, NeurIPS 2024, ACM JDIQ 2015, Heuer's ACH corpus) are solid. Provenance: workflow transcript, 2026-06-25.
 
+**Mechanical citation check (2026-06-25, deterministic — APIs + arithmetic, no model):** all SL formulas and ROC weights recomputed locally (10/10 pass); every cited id resolved against the arXiv / Crossref / NCBI APIs. The fresh 2026 preprints are real papers with matching titles (not hallucinated). One DOI error found and corrected above (Beat the Machine). Limit: this confirms a source *exists* and its title/authors match — not that the quoted sentence is in the body or that the paper supports the claim.
+
 ## Sources
 
 - Evidence sufficiency as a task — Atanasova et al., TACL 2022: [aclanthology.org/2022.tacl-1.43](https://aclanthology.org/2022.tacl-1.43/)
 - Abstention survey (three axes) — Wen et al., TACL 2025: [aclanthology.org/2025.tacl-1.26](https://aclanthology.org/2025.tacl-1.26/); abstention filters unsafe — Tomani et al.: [arXiv:2404.10960](https://arxiv.org/abs/2404.10960)
-- Unknown-unknowns — Google Research blog; Attenberg, Ipeirotis & Provost, *Beat the Machine*, ACM JDIQ 2015: [dl.acm.org/doi/10.1145/2700475](https://dl.acm.org/doi/10.1145/2700475)
+- Unknown-unknowns — Google Research blog; Attenberg, Ipeirotis & Provost, *Beat the Machine: Challenging Humans to Find a Predictive Model's Unknown Unknowns*, ACM JDIQ 2015 (cite by title/venue — the DOI `10.1145/2700475` the research run attached is **wrong**, it resolves to an unrelated paper; caught by the 2026-06-25 mechanical citation check)
 - Data vs model uncertainty — Ren et al., *Beyond I Don't Know*: [arXiv:2604.17293](https://arxiv.org/html/2604.17293v1)
 - Answer/Ask/Abstain + info state — PassiveQA: [arXiv:2604.04565](https://arxiv.org/html/2604.04565); AbstentionBench: [arXiv:2506.09038](https://arxiv.org/abs/2506.09038)
 - DS ignorance mass + value-of-information question policy — InfoGatherer, Taranukhin et al.: [arXiv:2603.05909](https://arxiv.org/html/2603.05909v1)
