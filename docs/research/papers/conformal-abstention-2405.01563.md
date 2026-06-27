@@ -16,12 +16,13 @@ The paper builds a framework for deciding when an LLM should refuse to answer ra
   - *Expected Match Count (E.M.C.):* single prompt asking how many samples match; expected value from token probabilities — O(k) inferences
   - *Log-Probability (L.P.):* normalized token log-probability baseline
 - **Match function calibration:** the LLM-judge threshold β̂ is itself set by conformal methods so that false-negative rate ≤ α
-- **Distribution-free guarantee:** no assumptions on query or answer distribution; holds over the randomness of the calibration set
+- **Distribution-free guarantee (with one assumption):** no assumptions on the *form* of the query/answer distribution — but the bound does require calibration and test points to be **exchangeable**, so it is marginal/in-expectation and breaks under distribution shift
 - **Hallucination definition:** operational — a response that fails the calibrated match function against a ground-truth answer
 
 ## Main claims and findings
 
 - **CRC guarantee (exact formula):** λ̂ₙ = inf{λ : (n/(n+1))Lₙ(λ) + 1/(n+1) ≤ α}, giving `𝔼[R(λ̂ₙ)] ≤ α`
+- **Conceded limitation (verbatim):** the approach "clearly cannot detect situations where the LLM is completely sure about an incorrect answer" — self-consistency is a proxy for hallucination, not a truth oracle
 - **High-probability bound (exact formula):** ℙ(𝔼[ℓ(X,Y;λ̂)|Dₙ] ≤ α + c(δ,α,n)) ≥ 1−δ, where c(δ,α,n) = √(log(1/δ)/(2n)) − (1−α)/n
 - **Match function calibration (exact formula):** β̂ = inf{β : (n/(n+1))∑ᵢ(1−mβ(Xᵢ,Y'ᵢ,Yᵢ)) + 1/(n+1) ≤ α}, bounding measured false negatives ≤ α and true errors `𝔼[C] ≤ 𝔼[L₂] + α`
 - **Temporal Sequences dataset** (long responses, n = 4,000 QA pairs, α = 0.05 and 0.10):

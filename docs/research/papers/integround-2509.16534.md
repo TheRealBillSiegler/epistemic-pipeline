@@ -11,7 +11,7 @@ InteGround is an evaluation framework for *integrative grounding* — the task o
 - **Integrative grounding**: verifying a hypothesis against multiple interdependent evidence pieces retrieved from external sources
 - **Evidence scenario types**: Informative (complete), Redundant (complete + distractors), Incomplete (strict subset), Uninformative (missing required premises)
 - **NLI verification**: DeBERTa xlarge/xxlarge as precise but precision-biased verifiers
-- **LLM rationalization**: LLMs compensate for missing evidence by filling gaps from parametric memory, not flagging incompleteness
+- **LLM rationalization**: LLMs compensate for missing evidence by filling gaps from internal knowledge (the paper's term; "parametric memory" was this file's earlier gloss), not flagging incompleteness
 - **Retrieval planning strategies**: query expansion (HyDE-style), atomic fact decomposition, proposition decomposition, premise abduction, self-reflection (history-aware)
 - **Premise abduction**: generates the logical premises a hypothesis requires, then uses those to query retrieval — a directed, constraint-based expansion
 - **Self-reflection**: iterative planning that uses retrieval history to steer subsequent queries

@@ -4,7 +4,7 @@
 
 ## What it is about
 
-AbstentionBench asks a precise question: when should a model say "I don't know," and does it? The paper builds a benchmark of 35,000+ unanswerable questions across 20 datasets and evaluates 20 frontier LLMs. Questions fall into six categories of unanswerability — unknown answers, false premises, outdated facts, subjective queries, underspecified context, and underspecified intent. The central finding is that reasoning fine-tuning, which improves accuracy, systematically degrades a model's willingness to abstain. Scaling model size barely helps.
+AbstentionBench asks a precise question: when should a model say "I don't know," and does it? The paper builds a benchmark of unanswerable questions spanning 20 datasets and evaluates 20 frontier LLMs. Questions fall into six categories of unanswerability — unknown answers, false premises, outdated facts, subjective queries, underspecified context, and underspecified intent. The central finding is that reasoning fine-tuning, which improves accuracy, systematically degrades a model's willingness to abstain. Scaling model size barely helps.
 
 ## Key topics and concepts
 
@@ -17,7 +17,7 @@ AbstentionBench asks a precise question: when should a model say "I don't know,"
 
 ## Main claims and findings
 
-- Benchmark spans 35,000+ unanswerable questions across 20 datasets plus 3 modified reasoning datasets, covering 20 frontier LLMs
+- Benchmark spans unanswerable questions across 20 datasets plus 3 modified reasoning datasets, covering 20 frontier LLMs (an earlier draft of this note claimed "35,000+" total; a 2026-06-26 string-match against the paper body found no such figure — the body states only a 100-questions-per-benchmark fast subset, so the specific total is unverified and dropped)
 - LLM judge (Llama 3.1 8B) achieves 88% accuracy against human annotations
 - Performance varies widely: near-perfect abstention recall on BIG-Bench Known Unknowns; near-zero recall on MediQ
 - GPT-4o and Qwen 2.5 perform best on average across datasets
