@@ -161,3 +161,22 @@ def test_fresh_store_is_empty():
     assert s.observations() == []
     assert s.concepts() == []
     s.close()
+
+
+def test_observations_table_has_root_id_column():
+    with Store(":memory:") as store:
+        cols = [row["name"] for row in store.conn.execute("PRAGMA table_info(observations)")]
+        assert "root_id" in cols
+
+
+def test_add_observation_round_trips_root_id():
+    with Store(":memory:") as store:
+        store.add_observation("confidence_vector", "{}", "src", 1.0, 1.0, root_id="blog-A")
+        row = store.observations()[0]
+        assert row["root_id"] == "blog-A"
+
+
+def test_add_observation_root_id_defaults_to_none():
+    with Store(":memory:") as store:
+        store.add_observation("confidence_vector", "{}", "src", 1.0, 1.0)
+        assert store.observations()[0]["root_id"] is None

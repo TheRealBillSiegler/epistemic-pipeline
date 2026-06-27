@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS observations (
     source     TEXT NOT NULL,
     modality   TEXT,
     confidence REAL NOT NULL,
-    timestamp  REAL NOT NULL
+    timestamp  REAL NOT NULL,
+    root_id    TEXT
 );
 CREATE TABLE IF NOT EXISTS concepts (
     name        TEXT PRIMARY KEY,
@@ -91,6 +92,14 @@ class Store:
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
+        # Forward-migrate stores created before root_id existed. On a fresh
+        # schema the column already exists, so the ALTER raises and we ignore
+        # it; on an old store it adds the column. Either way both converge.
+        try:
+            self.conn.execute("ALTER TABLE observations ADD COLUMN root_id TEXT")
+            self.conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
     def close(self) -> None:
         """Close the underlying connection."""
@@ -156,17 +165,20 @@ class Store:
         confidence: float,
         timestamp: float,
         modality: str | None = None,
+        root_id: str | None = None,
     ) -> int:
         """Append an observation. Returns its auto-assigned id.
 
-        confidence must be in [0, 1].
+        confidence must be in [0, 1]. ``root_id`` is the canonical source
+        the evidence traces to; belief fusion groups by it. None means the
+        origin was not recorded (legacy rows; replay falls back to source).
         """
         _check_confidence(confidence)
         cur = self.conn.execute(
             """INSERT INTO observations
-               (variable, value, source, modality, confidence, timestamp)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (variable, value, source, modality, confidence, timestamp),
+               (variable, value, source, modality, confidence, timestamp, root_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (variable, value, source, modality, confidence, timestamp, root_id),
         )
         self.conn.commit()
         assert cur.lastrowid is not None  # noqa: S101  # autoincrement always sets this
