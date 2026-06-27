@@ -156,6 +156,21 @@ def two_tier_fuse(by_root: Mapping[str, Sequence[Opinion]]) -> Opinion:
     each lower uncertainty. ``by_root`` must be non-empty and every
     increment must share a base rate (they do: all come from
     ``_evidence_increment``).
+
+    The dedup is this group-by-root rule, not a Subjective-Logic theorem.
+    Averaging within a root is the project's own duplicate-collapsing rule:
+    no SL identity proves it, and ``fuse_averaging`` is a mean-of-counts
+    heuristic that equals canonical averaging fusion only when a root's
+    increments carry equal evidence.
+
+    Reliability (source credibility) is not applied here yet. Today every
+    increment is already discounted by ``_evidence_increment``, and
+    ``discount`` scales counts linearly, so a uniform per-increment discount
+    equals a uniform per-root discount -- the two are identical while
+    reliability is uniform. Per-source reliability (C6 calibration, deferred)
+    is the seam that belongs here: one ``discount`` per root before the
+    cumulative step. When it lands, move the discount here; do not stack it on
+    the increment-level one, or reliability is counted twice.
     """
     per_root = [fuse_averaging(list(incs)) for incs in by_root.values()]
     return fuse_cumulative(per_root)
