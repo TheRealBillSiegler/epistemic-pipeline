@@ -1,0 +1,21 @@
+from epistemic_pipeline.worldview_app.provenance import canonicalize_origin
+
+
+def test_urls_differing_only_by_tracking_and_case_collapse():
+    a = canonicalize_origin("https://Blog.com/x?utm_source=tw&id=7#frag")
+    b = canonicalize_origin("https://blog.com/x?id=7")
+    assert a == b
+
+
+def test_trailing_slash_is_normalized():
+    assert canonicalize_origin("https://blog.com/x/") == canonicalize_origin("https://blog.com/x")
+
+
+def test_doi_variants_collapse():
+    assert canonicalize_origin("doi:10.1145/2700475") == canonicalize_origin("DOI:10.1145/2700475")
+    assert canonicalize_origin("10.1145/2700475") == canonicalize_origin("doi:10.1145/2700475")
+
+
+def test_vault_path_is_left_alone_and_distinct_sources_differ():
+    assert canonicalize_origin("notes/ai-risk.md") == "notes/ai-risk.md"
+    assert canonicalize_origin("notes/a.md") != canonicalize_origin("notes/b.md")
