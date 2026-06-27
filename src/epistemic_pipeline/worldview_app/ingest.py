@@ -37,6 +37,7 @@ from epistemic_pipeline.encodings.worldview import (
     aggregate_beliefs,
     extraction_observation,
 )
+from epistemic_pipeline.worldview_app.provenance import canonicalize_origin
 
 if TYPE_CHECKING:
     from epistemic_pipeline.llm.llm_interfaces import RatingLLMInterface
@@ -206,6 +207,7 @@ def ingest_document(  # noqa: PLR0913
     ts: float,
     seed: int,
     model_id: str,
+    origin: str,
     reason: str | None = None,
     source_type: str = "inferred",
 ) -> dict[str, float]:
@@ -223,6 +225,9 @@ def ingest_document(  # noqa: PLR0913
         ts: caller-supplied timestamp.
         seed: the sampling seed used (for the provenance record).
         model_id: the model identifier (for the provenance record).
+        origin: the canonical source the document came from (a URL, DOI, or
+            note path). Resolved to a root id so re-imports of one source
+            are not double-counted.
         reason: drift-timeline label; defaults to a document digest.
         source_type: 'inferred' (one-shot) or 'derived' (continuous).
 
@@ -244,6 +249,7 @@ def ingest_document(  # noqa: PLR0913
         prompt_hash=_prompt_hash(question, *known, document),
         seed=seed,
         reason=reason or f"doc:{_prompt_hash(document)}",
+        root_id=canonicalize_origin(origin),
     )
 
 
@@ -309,6 +315,7 @@ class NoteIngester:
             ts=ts,
             seed=seed,
             model_id=self.model_id,
+            origin=path,
             reason=path,
             source_type="derived",
         )
