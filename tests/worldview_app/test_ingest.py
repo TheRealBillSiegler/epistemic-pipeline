@@ -1,6 +1,7 @@
 """Tests for the three worldview ingestion paths (#8)."""
 
 import json
+import math
 
 import pytest
 
@@ -287,3 +288,35 @@ def test_same_inputs_produce_same_stored_beliefs():
         return result, sources
 
     assert run() == run()
+
+
+def _rate(store, *, root_id, prompt_hash):
+    return ingest_rating(
+        store, {"c": 1.0}, source_type="inferred", ts=1.0, model_id="m",
+        prompt_hash=prompt_hash, seed=0, reason="r", root_id=root_id,
+    )
+
+
+def test_same_root_does_not_inflate_settledness():
+    with Store(":memory:") as store:
+        _rate(store, root_id="blog-A", prompt_hash="h1")
+        _rate(store, root_id="blog-A", prompt_hash="h2")  # same source, rated again
+        beliefs = _replay_beliefs(store)
+        assert math.isclose(beliefs.opinions["c"].uncertainty, 0.5)  # one root's worth
+
+
+def test_distinct_roots_raise_settledness():
+    with Store(":memory:") as store:
+        _rate(store, root_id="blog-A", prompt_hash="h1")
+        _rate(store, root_id="paper-B", prompt_hash="h2")
+        beliefs = _replay_beliefs(store)
+        assert beliefs.opinions["c"].uncertainty < 0.5  # two roots accumulate
+
+
+def test_replay_is_deterministic():
+    with Store(":memory:") as store:
+        _rate(store, root_id="blog-A", prompt_hash="h1")
+        _rate(store, root_id="paper-B", prompt_hash="h2")
+        a = _replay_beliefs(store).opinions["c"]
+        b = _replay_beliefs(store).opinions["c"]
+        assert (a.r, a.s, a.base_rate) == (b.r, b.s, b.base_rate)
