@@ -2,6 +2,7 @@
 
 import json
 import math
+from types import SimpleNamespace
 
 import pytest
 
@@ -323,9 +324,6 @@ def test_replay_is_deterministic():
         a = _replay_beliefs(store).opinions["c"]
         b = _replay_beliefs(store).opinions["c"]
         assert (a.r, a.s, a.base_rate) == (b.r, b.s, b.base_rate)
-
-
-from types import SimpleNamespace  # noqa: E402
 
 
 class _StubLLM:

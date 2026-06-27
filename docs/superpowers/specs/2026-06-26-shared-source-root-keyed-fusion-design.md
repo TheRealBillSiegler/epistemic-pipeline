@@ -35,7 +35,7 @@ A root's `root_id` is a canonical origin id: a normalized URL, DOI, or arXiv id;
 
 This is the highest-priority correctness point. Keying identity on `doc-hash` (the naive choice) would make every edit a brand-new root and *re-manufacture* the bug in §1.
 
-*Example.* `notes/ai-risk.md` edited three times → one `root_id` (`notes/ai-risk.md`), three versions. `https://blog.com/x?utm=1` and `http://www.blog.com/x` → one `root_id` after canonicalization.
+*Example.* `notes/ai-risk.md` edited three times → one `root_id` (`notes/ai-risk.md`), three versions. `https://blog.com/x?utm_source=tw` and `http://www.blog.com/x` → one `root_id` after canonicalization.
 
 ### D2 — Root resolution at ingest (v1 scope).
 

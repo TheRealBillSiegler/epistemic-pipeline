@@ -32,9 +32,14 @@ def canonicalize_origin(origin: str) -> str:
     low = o.lower()
     if low.startswith(("http://", "https://")):
         parts = urlsplit(o)
+        # Fold http/https and a leading "www." so the same article fetched
+        # either way is one root (spec D1). They almost always name the same
+        # page; if they rarely do not, merging under-counts settledness --
+        # the safe direction (spec section 3: fail toward not inflating).
+        host = parts.netloc.lower().removeprefix("www.")
         path = parts.path.rstrip("/") or "/"
         kept = sorted((k, v) for k, v in parse_qsl(parts.query) if k.lower() not in _TRACKING)
-        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, urlencode(kept), ""))
+        return urlunsplit(("https", host, path, urlencode(kept), ""))
     if low.startswith("doi:"):
         return "doi:" + o[4:].strip().lower()
     if low.startswith("arxiv:"):

@@ -27,3 +27,19 @@ def test_arxiv_version_suffix_is_stripped():
 
 def test_arxiv_prefix_case_collapses():
     assert canonicalize_origin("arXiv:2301.00774") == canonicalize_origin("arxiv:2301.00774")
+
+
+def test_http_and_https_collapse_to_one_root():
+    assert canonicalize_origin("http://blog.com/x") == canonicalize_origin("https://blog.com/x")
+
+
+def test_www_prefix_is_stripped():
+    assert canonicalize_origin("https://www.blog.com/x") == canonicalize_origin("https://blog.com/x")
+
+
+def test_spec_d1_http_www_tracking_example_collapses():
+    # Spec D1's worked example: the same article over http + www + a tracking
+    # param is one root.
+    assert canonicalize_origin("http://www.blog.com/x?utm_source=tw") == canonicalize_origin(
+        "https://blog.com/x"
+    )
