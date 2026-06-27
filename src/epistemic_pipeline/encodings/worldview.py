@@ -47,13 +47,18 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from epistemic_pipeline.encodings._confidence import parse_confidence_vector
 from epistemic_pipeline.encodings._subjective_logic import (
     Opinion,
     discount,
+    fuse_averaging,
     fuse_cumulative,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 from epistemic_pipeline.state import EvidenceType, Observation
 
 # Evidence units one document contributes about each concept it rates.
@@ -141,6 +146,42 @@ def _evidence_increment(confidence: float) -> Opinion:
     p = min(1.0, max(0.0, confidence))
     raw = Opinion(EVIDENCE_PER_DOC * p, EVIDENCE_PER_DOC * (1.0 - p), DEFAULT_BASE_RATE)
     return discount(raw, DEFAULT_RELIABILITY)
+
+
+def two_tier_fuse(by_root: Mapping[str, Sequence[Opinion]]) -> Opinion:
+    """Average increments within each root, then accumulate across roots.
+
+    Restatements of one source (same root) are averaged, so N copies count
+    as one. Distinct roots are cumulatively fused, so independent sources
+    each lower uncertainty. ``by_root`` must be non-empty and every
+    increment must share a base rate (they do: all come from
+    ``_evidence_increment``).
+    """
+    per_root = [fuse_averaging(list(incs)) for incs in by_root.values()]
+    return fuse_cumulative(per_root)
+
+
+def aggregate_beliefs(
+    ratings: Sequence[tuple[str, Mapping[str, float]]],
+    ontology: WorldviewOntology,
+) -> WorldviewBeliefs:
+    """Build beliefs from (root_id, confidence-vector) pairs: the pure R fold.
+
+    Each pair is one recorded rating: the root it came from, and that
+    rating's concept -> confidence map. Group every concept's increments by
+    root id, then two-tier-fuse (average within a root, accumulate across
+    roots). Concepts the ontology does not know are skipped. A concept with
+    no increments gets no opinion (it stays vacuous on read).
+    """
+    buckets: dict[str, dict[str, list[Opinion]]] = {}
+    for root_id, vector in ratings:
+        for concept, confidence in vector.items():
+            if concept not in ontology.concepts:
+                continue
+            by_root = buckets.setdefault(concept, {})
+            by_root.setdefault(root_id, []).append(_evidence_increment(confidence))
+    opinions = {concept: two_tier_fuse(by_root) for concept, by_root in buckets.items()}
+    return WorldviewBeliefs(opinions=opinions)
 
 
 def worldview_update(
