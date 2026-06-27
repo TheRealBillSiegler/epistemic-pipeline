@@ -92,14 +92,15 @@ class Store:
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
-        # Forward-migrate stores created before root_id existed. On a fresh
-        # schema the column already exists, so the ALTER raises and we ignore
-        # it; on an old store it adds the column. Either way both converge.
-        try:
+        # Forward-migrate stores created before root_id existed. A fresh
+        # schema already has the column (the CREATE above includes it), so
+        # check first and only ALTER a legacy table. Checking beats catching
+        # OperationalError: a real failure (locked or full disk) still surfaces
+        # instead of being swallowed and leaving the store unmigrated.
+        cols = [row["name"] for row in self.conn.execute("PRAGMA table_info(observations)")]
+        if "root_id" not in cols:
             self.conn.execute("ALTER TABLE observations ADD COLUMN root_id TEXT")
             self.conn.commit()
-        except sqlite3.OperationalError:
-            pass
 
     def close(self) -> None:
         """Close the underlying connection."""

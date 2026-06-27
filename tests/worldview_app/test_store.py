@@ -180,3 +180,30 @@ def test_add_observation_root_id_defaults_to_none():
     with Store(":memory:") as store:
         store.add_observation("confidence_vector", "{}", "src", 1.0, 1.0)
         assert store.observations()[0]["root_id"] is None
+
+
+def test_legacy_store_without_root_id_is_migrated(tmp_path):
+    # A store file created before root_id existed must gain the column when
+    # reopened, and its legacy rows read root_id as None.
+    db = tmp_path / "legacy.db"
+    raw = sqlite3.connect(str(db))
+    raw.execute(
+        """CREATE TABLE observations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            variable TEXT NOT NULL, value TEXT NOT NULL, source TEXT NOT NULL,
+            modality TEXT, confidence REAL NOT NULL, timestamp REAL NOT NULL
+        )"""
+    )
+    raw.execute(
+        "INSERT INTO observations (variable, value, source, confidence, timestamp) "
+        "VALUES ('confidence_vector', '{}', 'old', 1.0, 1.0)"
+    )
+    raw.commit()
+    raw.close()
+
+    with Store(db) as store:  # opening runs the forward migration
+        cols = [row["name"] for row in store.conn.execute("PRAGMA table_info(observations)")]
+        assert "root_id" in cols
+        assert store.observations()[0]["root_id"] is None  # legacy row has no root
+        store.add_observation("confidence_vector", "{}", "new", 1.0, 2.0, root_id="r")
+        assert store.observations()[1]["root_id"] == "r"  # new row round-trips
