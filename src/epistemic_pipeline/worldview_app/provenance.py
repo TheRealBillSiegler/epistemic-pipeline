@@ -38,7 +38,10 @@ def canonicalize_origin(origin: str) -> str:
     if low.startswith("doi:"):
         return "doi:" + o[4:].strip().lower()
     if low.startswith("arxiv:"):
-        return "arxiv:" + o[6:].strip().lower()
+        # A version suffix (v1, v2, ...) is a content version, not a new
+        # identity, so two versions of one preprint share a root.
+        arxiv_id = re.sub(r"v\d+$", "", o[6:].strip().lower())
+        return "arxiv:" + arxiv_id
     if _DOI.match(low):
         return "doi:" + low
     return o

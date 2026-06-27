@@ -19,3 +19,11 @@ def test_doi_variants_collapse():
 def test_vault_path_is_left_alone_and_distinct_sources_differ():
     assert canonicalize_origin("notes/ai-risk.md") == "notes/ai-risk.md"
     assert canonicalize_origin("notes/a.md") != canonicalize_origin("notes/b.md")
+
+
+def test_arxiv_version_suffix_is_stripped():
+    assert canonicalize_origin("arxiv:2301.00774v2") == canonicalize_origin("arxiv:2301.00774")
+
+
+def test_arxiv_prefix_case_collapses():
+    assert canonicalize_origin("arXiv:2301.00774") == canonicalize_origin("arxiv:2301.00774")
