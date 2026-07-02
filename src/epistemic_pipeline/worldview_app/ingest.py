@@ -34,10 +34,10 @@ from epistemic_pipeline.encodings.worldview import (
     DEFAULT_BASE_RATE,
     WorldviewBeliefs,
     WorldviewOntology,
+    aggregate_beliefs,
     extraction_observation,
-    worldview_update,
 )
-from epistemic_pipeline.state import EvidenceType, Observation
+from epistemic_pipeline.worldview_app.provenance import canonicalize_origin
 
 if TYPE_CHECKING:
     from epistemic_pipeline.llm.llm_interfaces import RatingLLMInterface
@@ -79,48 +79,33 @@ def _prompt_hash(*parts: str) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
 
 
-def _replay_beliefs(store: Store) -> WorldviewBeliefs:
-    """Rebuild current opinions by replaying R over the stored evidence.
+def _ratings_from_store(store: Store) -> list[tuple[str, dict[str, float]]]:
+    """Read the trail as (root_id, confidence-vector) pairs.
 
-    The store's ``claims.confidence`` column is a display cache of each
-    opinion's projected probability; the authoritative belief state is the
-    confidence-vector observation trail. Replaying R reconstructs the
-    document-derived opinions, so the store is never the only copy of a
-    belief that came from a document. User-authored claims are the
-    exception: they write a confidence with no observation, so they live
-    outside E, and replay does not recover them (see ``author_claim``).
-
-    The ontology is read here (the full, current concept set) rather than
-    passed in: concepts are append-only, so the current set covers every
-    concept any past observation named, and a caller cannot hand in a
-    stale or narrowed ontology that would silently drop concepts.
-
-    ponytail: O(observations) per call, so O(N^2) over a corpus ingested one
-    document at a time. Fine for a personal corpus. If the trail grows
-    large, persist (r, s) on the claims row and skip the replay.
-
-    Args:
-        store: the belief store.
-
-    Returns:
-        The current opinions, one per concept that has evidence.
+    The root id is the recorded ``root_id``; legacy rows that predate it
+    fall back to ``source`` so each still counts as its own root.
     """
-    ontology = WorldviewOntology(concepts=frozenset(store.concepts()))
-    beliefs = WorldviewBeliefs({})
+    ratings: list[tuple[str, dict[str, float]]] = []
     for row in store.observations():
         if row["variable"] != "confidence_vector":
             continue
-        obs = Observation(
-            variable=row["variable"],
-            value=row["value"],
-            source=row["source"],
-            timestamp=row["timestamp"],
-            confidence=row["confidence"],
-            etype=EvidenceType.REPORT,
-            modality=row["modality"],
-        )
-        beliefs = worldview_update(beliefs, obs, ontology)
-    return beliefs
+        root = row["root_id"] or row["source"]
+        ratings.append((root, parse_confidence_vector(row["value"])))
+    return ratings
+
+
+# Nothing inside this module calls this now (only tests and belief-replay
+# audits do), so pyright flags it unused; a public read-API rename is deferred.
+# Keep the suppress until then.
+def _replay_beliefs(store: Store) -> WorldviewBeliefs:  # pyright: ignore[reportUnusedFunction]
+    """Rebuild opinions by replaying R (two-tier fusion) over the trail.
+
+    Groups each concept's evidence by root id: averaging within a root,
+    cumulative across distinct roots. The ontology is read here (the full,
+    current concept set) so a stale ontology cannot silently drop concepts.
+    """
+    ontology = WorldviewOntology(concepts=frozenset(store.concepts()))
+    return aggregate_beliefs(_ratings_from_store(store), ontology)
 
 
 def ingest_rating(  # noqa: PLR0913
@@ -133,15 +118,18 @@ def ingest_rating(  # noqa: PLR0913
     prompt_hash: str,
     seed: int,
     reason: str,
+    root_id: str | None = None,
 ) -> dict[str, float]:
     """Persist an LLM rating: grow O, accumulate evidence, link the drift.
 
     Steps:
     1. Add every rated claim to the ontology as a concept.
-    2. Replay R over the stored evidence to get current opinions, then
-       apply R to this rating to get the updated opinions.
-    3. Write the confidence-vector observation once.
-    4. For each rated concept, cache its new projected probability on the
+    2. Build the observation; derive the root (the canonical source this
+       rating traces to; None falls back to the provenance source, so an
+       unrooted rating counts as one root).
+    3. Fuse the full trail plus this rating via aggregate_beliefs.
+    4. Write the confidence-vector observation once.
+    5. For each rated concept, cache its new projected probability on the
        claims row and link the projected-probability change (the drift)
        to the observation.
 
@@ -154,6 +142,8 @@ def ingest_rating(  # noqa: PLR0913
         prompt_hash: hash of the exact prompt sent.
         seed: the sampling seed used.
         reason: short human-readable cause, shown in the drift timeline.
+        root_id: the canonical source this rating traces to; None falls back
+            to the provenance source, so an unrooted rating counts as one root.
 
     Returns:
         A map from each moved concept to its new projected probability
@@ -168,10 +158,16 @@ def ingest_rating(  # noqa: PLR0913
     for claim in rated:
         store.add_concept(claim, source_type)
 
-    ontology = WorldviewOntology(concepts=frozenset(store.concepts()))
-    before = _replay_beliefs(store)
+    # Build the observation first: its provenance source doubles as the root
+    # when the caller gives none. That is the same fallback replay uses for
+    # legacy rows (row["root_id"] or row["source"]), so a direct rating still
+    # counts as exactly one root, and the cached projected probabilities here
+    # match what _replay_beliefs will later derive.
     obs = extraction_observation(rated, ts, model_id, prompt_hash, seed)
-    after = worldview_update(before, obs, ontology)
+    root = root_id or obs.source
+
+    ontology = WorldviewOntology(concepts=frozenset(store.concepts()))
+    after = aggregate_beliefs([*_ratings_from_store(store), (root, rated)], ontology)
 
     # Only the concepts this rating actually moved. A concept enters
     # ``after.opinions`` only when R fused evidence for it, so this both
@@ -187,6 +183,7 @@ def ingest_rating(  # noqa: PLR0913
         obs.confidence,
         obs.timestamp,
         modality=obs.modality,
+        root_id=root_id,
     )
     result: dict[str, float] = {}
     for claim in moved:
@@ -213,6 +210,7 @@ def ingest_document(  # noqa: PLR0913
     ts: float,
     seed: int,
     model_id: str,
+    origin: str,
     reason: str | None = None,
     source_type: str = "inferred",
 ) -> dict[str, float]:
@@ -230,6 +228,9 @@ def ingest_document(  # noqa: PLR0913
         ts: caller-supplied timestamp.
         seed: the sampling seed used (for the provenance record).
         model_id: the model identifier (for the provenance record).
+        origin: the canonical source the document came from (a URL, DOI, or
+            note path). Resolved to a root id so re-imports of one source
+            are not double-counted.
         reason: drift-timeline label; defaults to a document digest.
         source_type: 'inferred' (one-shot) or 'derived' (continuous).
 
@@ -251,6 +252,7 @@ def ingest_document(  # noqa: PLR0913
         prompt_hash=_prompt_hash(question, *known, document),
         seed=seed,
         reason=reason or f"doc:{_prompt_hash(document)}",
+        root_id=canonicalize_origin(origin),
     )
 
 
@@ -316,6 +318,7 @@ class NoteIngester:
             ts=ts,
             seed=seed,
             model_id=self.model_id,
+            origin=path,
             reason=path,
             source_type="derived",
         )

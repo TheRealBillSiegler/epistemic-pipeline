@@ -1,6 +1,8 @@
 """Tests for the three worldview ingestion paths (#8)."""
 
 import json
+import math
+from types import SimpleNamespace
 
 import pytest
 
@@ -63,6 +65,7 @@ class TestIngestDocument:
             ts=1.0,
             seed=0,
             model_id="m",
+            origin="doc text",  # single-doc test
         )
         assert posterior["A"] == pytest.approx(0.55)
         assert posterior["B"] == pytest.approx(0.35)
@@ -72,7 +75,7 @@ class TestIngestDocument:
 
     def test_grows_ontology_and_links_evidence(self, store):
         llm = _llm({"A": 1.0})
-        ingest_document(store, llm, "q", "d", ts=2.0, seed=0, model_id="m")
+        ingest_document(store, llm, "q", "d", ts=2.0, seed=0, model_id="m", origin="d1")  # single distinct doc
         assert store.has_concept("A")
         hist = store.history("A")
         assert len(hist) == 1
@@ -92,21 +95,22 @@ class TestIngestDocument:
             ts=1.0,
             seed=0,
             model_id="m",
+            origin="d",  # single-doc test
         )
         assert posterior["claim x"] > posterior["claim y"]
         assert store.get_claim("claim x")["confidence"] == pytest.approx(0.7)
 
     def test_empty_rating_writes_nothing(self, store):
         llm = _llm({})
-        posterior = ingest_document(store, llm, "q", "d", ts=1.0, seed=0, model_id="m")
+        posterior = ingest_document(store, llm, "q", "d", ts=1.0, seed=0, model_id="m", origin="d")  # single-doc test
         assert posterior == {}
         assert store.claims() == []
 
     def test_second_document_relinks_with_new_delta(self, store):
         # Two documents rate claim A differently; the drift timeline records both.
         llm = _llm({"A": 1.0}, {"A": 0.5, "B": 0.5})
-        ingest_document(store, llm, "q", "d1", ts=1.0, seed=0, model_id="m")
-        ingest_document(store, llm, "q", "d2", ts=2.0, seed=0, model_id="m")
+        ingest_document(store, llm, "q", "d1", ts=1.0, seed=0, model_id="m", origin="d1")  # distinct doc 1
+        ingest_document(store, llm, "q", "d2", ts=2.0, seed=0, model_id="m", origin="d2")  # distinct doc 2
         hist = store.history("A")
         assert len(hist) == 2
         # A: vacuous(0.5) -> believed(0.75) [+0.25], then accumulates mixed
@@ -127,6 +131,7 @@ class TestIngestDocument:
             ts=2.0,
             seed=0,
             model_id="m",
+            origin="d",  # single-doc test
         )
         # 0.0 -> Opinion(0, 2) -> P=0.25: disconfirmation is recorded.
         assert result == {"unrated": pytest.approx(0.25)}
@@ -143,7 +148,7 @@ class TestIngestDocument:
         # not a change measured from the vacuous base rate.
         author_claim(store, "X", 0.8, ts=1.0)
         result = ingest_document(
-            store, _llm({"X": 0.9}), "q", "d", ts=2.0, seed=0, model_id="m"
+            store, _llm({"X": 0.9}), "q", "d", ts=2.0, seed=0, model_id="m", origin="d"  # single-doc test
         )
         assert result["X"] == pytest.approx(0.7)  # p=0.9 -> Opinion(1.8,0.2) -> 0.7
         row = store.get_claim("X")
@@ -155,11 +160,11 @@ class TestIngestDocument:
         # The amnesia regression at the store level: a second document silent
         # on A must leave A's stored belief and history untouched.
         ingest_document(
-            store, _llm({"A": 1.0}), "q", "d1", ts=1.0, seed=0, model_id="m"
+            store, _llm({"A": 1.0}), "q", "d1", ts=1.0, seed=0, model_id="m", origin="d1"  # distinct doc 1
         )
         a_before = store.get_claim("A")["confidence"]
         ingest_document(
-            store, _llm({"B": 1.0}), "q", "d2", ts=2.0, seed=0, model_id="m"
+            store, _llm({"B": 1.0}), "q", "d2", ts=2.0, seed=0, model_id="m", origin="d2"  # distinct doc 2
         )
         assert store.get_claim("A")["confidence"] == pytest.approx(a_before)
         assert len(store.history("A")) == 1  # no new link for the silent doc
@@ -169,10 +174,10 @@ class TestIngestDocument:
         # not one normalized distribution. Two documents that rate disjoint
         # concepts both persist, and their confidences sum past 1.0 by design.
         ingest_document(
-            store, _llm({"A": 1.0}), "q", "d1", ts=1.0, seed=0, model_id="m"
+            store, _llm({"A": 1.0}), "q", "d1", ts=1.0, seed=0, model_id="m", origin="d1"  # distinct doc 1
         )
         ingest_document(
-            store, _llm({"B": 1.0}), "q", "d2", ts=2.0, seed=0, model_id="m"
+            store, _llm({"B": 1.0}), "q", "d2", ts=2.0, seed=0, model_id="m", origin="d2"  # distinct doc 2
         )
         rows = {r["id"]: r["confidence"] for r in store.claims()}
         assert set(rows) == {"A", "B"}  # neither concept dropped
@@ -188,7 +193,7 @@ class TestReplayAndOrphanFilter:
         # accumulation, and a new concept arriving, all at once.
         ratings = [{"A": 0.6, "B": 0.2}, {"A": 0.9, "C": 0.4}, {"B": 0.5, "C": 1.0}]
         for i, r in enumerate(ratings):
-            ingest_document(store, _llm(r), "q", f"d{i}", ts=float(i), seed=0, model_id="m")
+            ingest_document(store, _llm(r), "q", f"d{i}", ts=float(i), seed=0, model_id="m", origin=f"d{i}")  # each doc distinct
 
         ont = WorldviewOntology(concepts=frozenset(store.concepts()))
         expected = WorldviewBeliefs({})
@@ -258,7 +263,7 @@ class TestNoteIngester:
 def test_all_three_paths_share_one_store(store):
     author_claim(store, "user claim", 0.8, ts=1.0)
     ingest_document(
-        store, _llm({"inferred claim": 1.0}), "q", "d", ts=2.0, seed=0, model_id="m"
+        store, _llm({"inferred claim": 1.0}), "q", "d", ts=2.0, seed=0, model_id="m", origin="d"  # single-doc test
     )
     NoteIngester(store, _llm({"derived claim": 1.0}), "q", model_id="m").ingest(
         "n.md",
@@ -279,7 +284,7 @@ def test_same_inputs_produce_same_stored_beliefs():
     def run():
         s = Store(":memory:")
         ingest_document(
-            s, _llm({"A": 0.6, "B": 0.4}), "q", "doc", ts=1.0, seed=0, model_id="m"
+            s, _llm({"A": 0.6, "B": 0.4}), "q", "doc", ts=1.0, seed=0, model_id="m", origin="doc"  # single-doc test
         )
         result = {r["id"]: r["confidence"] for r in s.claims()}
         sources = {r["source"] for r in s.observations()}
@@ -287,3 +292,85 @@ def test_same_inputs_produce_same_stored_beliefs():
         return result, sources
 
     assert run() == run()
+
+
+def _rate(store, *, root_id, prompt_hash):
+    return ingest_rating(
+        store, {"c": 1.0}, source_type="inferred", ts=1.0, model_id="m",
+        prompt_hash=prompt_hash, seed=0, reason="r", root_id=root_id,
+    )
+
+
+def test_same_root_does_not_inflate_settledness():
+    with Store(":memory:") as store:
+        _rate(store, root_id="blog-A", prompt_hash="h1")
+        _rate(store, root_id="blog-A", prompt_hash="h2")  # same source, rated again
+        beliefs = _replay_beliefs(store)
+        assert math.isclose(beliefs.opinions["c"].uncertainty, 0.5)  # one root's worth
+
+
+def test_distinct_roots_raise_settledness():
+    with Store(":memory:") as store:
+        _rate(store, root_id="blog-A", prompt_hash="h1")
+        _rate(store, root_id="paper-B", prompt_hash="h2")
+        beliefs = _replay_beliefs(store)
+        assert beliefs.opinions["c"].uncertainty < 0.5  # two roots accumulate
+
+
+def test_replay_is_deterministic():
+    with Store(":memory:") as store:
+        _rate(store, root_id="blog-A", prompt_hash="h1")
+        _rate(store, root_id="paper-B", prompt_hash="h2")
+        a = _replay_beliefs(store).opinions["c"]
+        b = _replay_beliefs(store).opinions["c"]
+        assert (a.r, a.s, a.base_rate) == (b.r, b.s, b.base_rate)
+
+
+def test_none_root_falls_back_to_source_and_counts_once():
+    # No explicit root: the provenance source becomes the root. Two ratings
+    # from the same source (same model/prompt/seed) are one root, not two, so
+    # the fallback path does not inflate settledness either.
+    with Store(":memory:") as store:
+        _rate(store, root_id=None, prompt_hash="h")
+        _rate(store, root_id=None, prompt_hash="h")  # same source, no explicit root
+        beliefs = _replay_beliefs(store)
+        assert math.isclose(beliefs.opinions["c"].uncertainty, 0.5)  # one root
+
+
+class _StubLLM:
+    """Rates every document with a fixed confidence vector."""
+
+    def __init__(self, content: str) -> None:
+        self._content = content
+
+    def rate_confidence(self, _question: str, _known: tuple[str, ...], _document: str):
+        return SimpleNamespace(content=self._content)
+
+
+def test_reingest_after_edit_does_not_inflate():
+    with Store(":memory:") as store:
+        ing = NoteIngester(store, _StubLLM('{"c": 1.0}'), "q", model_id="m")
+        ing.ingest("notes/n.md", "version one", ts=1.0, seed=0)
+        ing.ingest("notes/n.md", "version two — edited", ts=2.0, seed=0)  # same note, changed
+        beliefs = _replay_beliefs(store)
+        assert math.isclose(beliefs.opinions["c"].uncertainty, 0.5)  # one root
+
+
+def test_same_article_two_urls_collapse_via_canonicalization():
+    with Store(":memory:") as store:
+        llm = _StubLLM('{"c": 1.0}')
+        ingest_document(store, llm, "q", "doc", ts=1.0, seed=0, model_id="m",
+                        origin="https://blog.com/x?utm_source=tw")
+        ingest_document(store, llm, "q", "doc", ts=2.0, seed=0, model_id="m",
+                        origin="https://blog.com/x")
+        assert math.isclose(_replay_beliefs(store).opinions["c"].uncertainty, 0.5)
+
+
+def test_resolver_miss_two_distinct_origins_over_count():
+    # Distinct origins that do NOT canonicalize equal are two roots — proof
+    # the dedup lives in the canonicalizer, not the fusion algebra.
+    with Store(":memory:") as store:
+        llm = _StubLLM('{"c": 1.0}')
+        ingest_document(store, llm, "q", "doc", ts=1.0, seed=0, model_id="m", origin="notes/a.md")
+        ingest_document(store, llm, "q", "doc", ts=2.0, seed=0, model_id="m", origin="notes/b.md")
+        assert _replay_beliefs(store).opinions["c"].uncertainty < 0.5

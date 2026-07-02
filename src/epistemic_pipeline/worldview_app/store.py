@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS observations (
     source     TEXT NOT NULL,
     modality   TEXT,
     confidence REAL NOT NULL,
-    timestamp  REAL NOT NULL
+    timestamp  REAL NOT NULL,
+    root_id    TEXT
 );
 CREATE TABLE IF NOT EXISTS concepts (
     name        TEXT PRIMARY KEY,
@@ -91,6 +92,15 @@ class Store:
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(_SCHEMA)
         self.conn.commit()
+        # Forward-migrate stores created before root_id existed. A fresh
+        # schema already has the column (the CREATE above includes it), so
+        # check first and only ALTER a legacy table. Checking beats catching
+        # OperationalError: a real failure (locked or full disk) still surfaces
+        # instead of being swallowed and leaving the store unmigrated.
+        cols = [row["name"] for row in self.conn.execute("PRAGMA table_info(observations)")]
+        if "root_id" not in cols:
+            self.conn.execute("ALTER TABLE observations ADD COLUMN root_id TEXT")
+            self.conn.commit()
 
     def close(self) -> None:
         """Close the underlying connection."""
@@ -156,17 +166,20 @@ class Store:
         confidence: float,
         timestamp: float,
         modality: str | None = None,
+        root_id: str | None = None,
     ) -> int:
         """Append an observation. Returns its auto-assigned id.
 
-        confidence must be in [0, 1].
+        confidence must be in [0, 1]. ``root_id`` is the canonical source
+        the evidence traces to; belief fusion groups by it. None means the
+        origin was not recorded (legacy rows; replay falls back to source).
         """
         _check_confidence(confidence)
         cur = self.conn.execute(
             """INSERT INTO observations
-               (variable, value, source, modality, confidence, timestamp)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (variable, value, source, modality, confidence, timestamp),
+               (variable, value, source, modality, confidence, timestamp, root_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (variable, value, source, modality, confidence, timestamp, root_id),
         )
         self.conn.commit()
         assert cur.lastrowid is not None  # noqa: S101  # autoincrement always sets this

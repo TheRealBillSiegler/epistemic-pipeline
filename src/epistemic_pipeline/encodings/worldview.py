@@ -39,21 +39,31 @@ no-op, so belief tracks evidence directly and nothing fakes credibility.
 
 The LLM is non-deterministic, but R is pure: the LLM's confidence vector
 is recorded as an Observation before R runs, and R only ever reads from
-that recorded text. Cumulative fusion is count addition, so replaying the
-recorded evidence trail reproduces beliefs exactly.
+that recorded text. ``worldview_update`` fuses each vector cumulatively
+(count addition). The worldview app's belief replay goes one step further:
+it groups evidence by its source (a "root") and fuses averaging within a
+root, cumulatively across distinct roots -- see ``two_tier_fuse`` and
+``aggregate_beliefs`` -- so one source counted twice does not inflate how
+settled a belief looks. Both are deterministic count arithmetic, so
+replaying the recorded evidence trail reproduces beliefs exactly.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from epistemic_pipeline.encodings._confidence import parse_confidence_vector
 from epistemic_pipeline.encodings._subjective_logic import (
     Opinion,
     discount,
+    fuse_averaging,
     fuse_cumulative,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 from epistemic_pipeline.state import EvidenceType, Observation
 
 # Evidence units one document contributes about each concept it rates.
@@ -141,6 +151,57 @@ def _evidence_increment(confidence: float) -> Opinion:
     p = min(1.0, max(0.0, confidence))
     raw = Opinion(EVIDENCE_PER_DOC * p, EVIDENCE_PER_DOC * (1.0 - p), DEFAULT_BASE_RATE)
     return discount(raw, DEFAULT_RELIABILITY)
+
+
+def two_tier_fuse(by_root: Mapping[str, Sequence[Opinion]]) -> Opinion:
+    """Average increments within each root, then accumulate across roots.
+
+    Restatements of one source (same root) are averaged, so N copies count
+    as one. Distinct roots are cumulatively fused, so independent sources
+    each lower uncertainty. ``by_root`` must be non-empty and every
+    increment must share a base rate (they do: all come from
+    ``_evidence_increment``).
+
+    The dedup is this group-by-root rule, not a Subjective-Logic theorem.
+    Averaging within a root is the project's own duplicate-collapsing rule:
+    no SL identity proves it, and ``fuse_averaging`` is a mean-of-counts
+    heuristic that equals canonical averaging fusion only when a root's
+    increments carry equal evidence.
+
+    Reliability (source credibility) is not applied here yet. Today every
+    increment is already discounted by ``_evidence_increment``, and
+    ``discount`` scales counts linearly, so a uniform per-increment discount
+    equals a uniform per-root discount -- the two are identical while
+    reliability is uniform. Per-source reliability (C6 calibration, deferred)
+    is the seam that belongs here: one ``discount`` per root before the
+    cumulative step. When it lands, move the discount here; do not stack it on
+    the increment-level one, or reliability is counted twice.
+    """
+    per_root = [fuse_averaging(list(incs)) for incs in by_root.values()]
+    return fuse_cumulative(per_root)
+
+
+def aggregate_beliefs(
+    ratings: Sequence[tuple[str, Mapping[str, float]]],
+    ontology: WorldviewOntology,
+) -> WorldviewBeliefs:
+    """Build beliefs from (root_id, confidence-vector) pairs: the pure R fold.
+
+    Each pair is one recorded rating: the root it came from, and that
+    rating's concept -> confidence map. Group every concept's increments by
+    root id, then two-tier-fuse (average within a root, accumulate across
+    roots). Concepts the ontology does not know are skipped. A concept with
+    no increments gets no opinion (it stays vacuous on read).
+    """
+    buckets: dict[str, dict[str, list[Opinion]]] = {}
+    for root_id, vector in ratings:
+        for concept, confidence in vector.items():
+            if concept not in ontology.concepts:
+                continue
+            by_root = buckets.setdefault(concept, {})
+            by_root.setdefault(root_id, []).append(_evidence_increment(confidence))
+    opinions = {concept: two_tier_fuse(by_root) for concept, by_root in buckets.items()}
+    return WorldviewBeliefs(opinions=opinions)
 
 
 def worldview_update(
