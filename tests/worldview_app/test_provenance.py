@@ -43,3 +43,11 @@ def test_spec_d1_http_www_tracking_example_collapses():
     assert canonicalize_origin("http://www.blog.com/x?utm_source=tw") == canonicalize_origin(
         "https://blog.com/x"
     )
+
+
+def test_dual_use_ref_param_is_not_stripped():
+    # Bare "ref" can name the resource (e.g. a git ref), so distinct refs must
+    # stay distinct roots rather than false-merging into one.
+    assert canonicalize_origin("https://github.com/x?ref=main") != canonicalize_origin(
+        "https://github.com/x?ref=dev"
+    )

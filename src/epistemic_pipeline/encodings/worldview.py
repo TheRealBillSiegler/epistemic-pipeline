@@ -39,8 +39,13 @@ no-op, so belief tracks evidence directly and nothing fakes credibility.
 
 The LLM is non-deterministic, but R is pure: the LLM's confidence vector
 is recorded as an Observation before R runs, and R only ever reads from
-that recorded text. Cumulative fusion is count addition, so replaying the
-recorded evidence trail reproduces beliefs exactly.
+that recorded text. ``worldview_update`` fuses each vector cumulatively
+(count addition). The worldview app's belief replay goes one step further:
+it groups evidence by its source (a "root") and fuses averaging within a
+root, cumulatively across distinct roots -- see ``two_tier_fuse`` and
+``aggregate_beliefs`` -- so one source counted twice does not inflate how
+settled a belief looks. Both are deterministic count arithmetic, so
+replaying the recorded evidence trail reproduces beliefs exactly.
 """
 
 from __future__ import annotations

@@ -326,6 +326,17 @@ def test_replay_is_deterministic():
         assert (a.r, a.s, a.base_rate) == (b.r, b.s, b.base_rate)
 
 
+def test_none_root_falls_back_to_source_and_counts_once():
+    # No explicit root: the provenance source becomes the root. Two ratings
+    # from the same source (same model/prompt/seed) are one root, not two, so
+    # the fallback path does not inflate settledness either.
+    with Store(":memory:") as store:
+        _rate(store, root_id=None, prompt_hash="h")
+        _rate(store, root_id=None, prompt_hash="h")  # same source, no explicit root
+        beliefs = _replay_beliefs(store)
+        assert math.isclose(beliefs.opinions["c"].uncertainty, 0.5)  # one root
+
+
 class _StubLLM:
     """Rates every document with a fixed confidence vector."""
 

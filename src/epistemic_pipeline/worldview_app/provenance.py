@@ -13,10 +13,13 @@ import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 # Query parameters that identify a click, not the resource. Dropped so the
-# same article shared two ways collapses to one root.
+# same article shared two ways collapses to one root. Bare "ref" is left OUT
+# on purpose: some sites use it to name the resource, not the click (GitHub
+# ?ref=main vs ?ref=dev are different pages), so stripping it would merge
+# distinct sources. "ref_src" (Twitter) is unambiguous tracking, so it stays.
 _TRACKING = frozenset(
     {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-     "fbclid", "gclid", "ref", "ref_src"}
+     "fbclid", "gclid", "ref_src"}
 )
 # A bare DOI, e.g. "10.1145/2700475".
 _DOI = re.compile(r"^10\.\d{4,9}/\S+$")

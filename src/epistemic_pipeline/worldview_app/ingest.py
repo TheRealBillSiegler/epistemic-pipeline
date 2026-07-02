@@ -94,6 +94,9 @@ def _ratings_from_store(store: Store) -> list[tuple[str, dict[str, float]]]:
     return ratings
 
 
+# Nothing inside this module calls this now (only tests and belief-replay
+# audits do), so pyright flags it unused; a public read-API rename is deferred.
+# Keep the suppress until then.
 def _replay_beliefs(store: Store) -> WorldviewBeliefs:  # pyright: ignore[reportUnusedFunction]
     """Rebuild opinions by replaying R (two-tier fusion) over the trail.
 
