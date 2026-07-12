@@ -2,7 +2,7 @@
 
 import json
 import math
-from types import SimpleNamespace
+from collections.abc import Sequence
 
 import pytest
 
@@ -47,9 +47,53 @@ class TestAuthorClaim:
         assert row["confidence"] == 0.95
         assert store.has_concept("the sky is blue")
 
-    def test_no_evidence_link_for_user_claim(self, store):
-        author_claim(store, "c", 0.5, ts=1.0)
-        assert store.history("c") == []
+    def test_authoring_is_visible_in_the_drift_timeline(self, store):
+        # An assertion is a display change, so it must leave a link (#31).
+        # Delta is measured from the base rate for a new claim.
+        author_claim(store, "c", 0.9, ts=1.0)
+        (link,) = store.history("c")
+        assert math.isclose(link["delta"], 0.9 - 0.5)
+        assert link["reason"] == "authored"
+
+    def test_reauthoring_links_the_change(self, store):
+        # Re-authoring mid-history must not desync the reconstructed
+        # timeline: base rate + sum of deltas == stored confidence.
+        author_claim(store, "c", 0.9, ts=1.0)
+        author_claim(store, "c", 0.3, ts=2.0)
+        deltas = [row["delta"] for row in store.history("c")]
+        row = store.get_claim("c")
+        assert row is not None
+        assert math.isclose(0.5 + sum(deltas), row["confidence"])
+
+    def test_assertion_stays_out_of_the_evidence_trail(self, store):
+        # The audit observation must not enter belief fusion: a user
+        # assertion is not Subjective-Logic evidence.
+        author_claim(store, "c", 0.9, ts=1.0)
+        assert _replay_beliefs(store).opinions == {}
+
+    def test_audit_observation_row_shape(self, store):
+        # Pin the row itself: the variable label is what keeps the
+        # assertion out of fusion, so it must not silently change.
+        author_claim(store, "c", 0.9, ts=1.0)
+        (row,) = store.observations()
+        assert row["variable"] == "user_assertion"
+        assert row["value"] == "0.9"
+        assert row["source"] == "user"
+
+    def test_exclusion_is_by_variable_not_by_parse_failure(self, store):
+        # A user_assertion row whose value happens to be a valid JSON
+        # object must still be excluded from fusion -- the variable
+        # filter, not an accidental parse failure, is the mechanism.
+        store.add_concept("c", "user")
+        store.add_observation("user_assertion", '{"c": 1.0}', "user", 1.0, 1.0)
+        assert _replay_beliefs(store).opinions == {}
+
+    def test_replay_tolerates_a_garbage_evidence_row(self, store):
+        # The lenient half of the strict/lenient split: replay of
+        # persisted values must never raise, whatever a row contains.
+        store.add_concept("c", "user")
+        store.add_observation("confidence_vector", "not json", "s", 1.0, 1.0)
+        assert _replay_beliefs(store).opinions == {}
 
 
 class TestIngestDocument:
@@ -136,11 +180,12 @@ class TestIngestDocument:
         # 0.0 -> Opinion(0, 2) -> P=0.25: disconfirmation is recorded.
         assert result == {"unrated": pytest.approx(0.25)}
         assert store.get_claim("unrated")["confidence"] == pytest.approx(0.25)
-        # The unrelated user claim is untouched.
+        # The unrelated user claim is untouched: only its own authoring
+        # link, nothing from this document.
         uc = store.get_claim("user claim")
         assert uc["source_type"] == "user"
         assert uc["confidence"] == pytest.approx(0.8)
-        assert store.history("user claim") == []
+        assert [row["reason"] for row in store.history("user claim")] == ["authored"]
 
     def test_document_rating_of_user_claim_reconciles_drift(self, store):
         # A document rating a claim the user authored takes over, and the
@@ -343,8 +388,10 @@ class _StubLLM:
     def __init__(self, content: str) -> None:
         self._content = content
 
-    def rate_confidence(self, _question: str, _known: tuple[str, ...], _document: str):
-        return SimpleNamespace(content=self._content)
+    def rate_confidence(
+        self, _question: str, _known: Sequence[str], _document: str
+    ) -> LLMResponse:
+        return LLMResponse(self._content, 1.0)
 
 
 def test_reingest_after_edit_does_not_inflate():
@@ -374,3 +421,42 @@ def test_resolver_miss_two_distinct_origins_over_count():
         ingest_document(store, llm, "q", "doc", ts=1.0, seed=0, model_id="m", origin="notes/a.md")
         ingest_document(store, llm, "q", "doc", ts=2.0, seed=0, model_id="m", origin="notes/b.md")
         assert _replay_beliefs(store).opinions["c"].uncertainty < 0.5
+
+
+class TestUnparseableResponse:
+    """A garbage LLM response must fail loudly, not vanish (#22)."""
+
+    @pytest.mark.parametrize(
+        "garbage", ["not json", "[1, 2, 3]", '"0.7"', '{"c": "high"}'],
+    )
+    def test_ingest_document_raises(self, store, garbage):
+        with pytest.raises(ValueError, match="confidence vector"):
+            ingest_document(
+                store, _StubLLM(garbage), "q", "doc",
+                ts=1.0, seed=0, model_id="m", origin="notes/a.md",
+            )
+        assert store.observations() == []  # nothing recorded as success
+
+    def test_note_stays_unseen_and_retries(self, store):
+        # Garbage response -> raise -> note not marked seen -> the next
+        # attempt with the same content retries instead of skipping.
+        bad_then_good = MockRatingLLM(
+            {},
+            confidence_ratings=[
+                LLMResponse("not json", 1.0),
+                LLMResponse('{"c": 1.0}', 1.0),
+            ],
+        )
+        ing = NoteIngester(store, bad_then_good, "q", model_id="m")
+        with pytest.raises(ValueError, match="confidence vector"):
+            ing.ingest("notes/n.md", "body", ts=1.0, seed=0)
+        result = ing.ingest("notes/n.md", "body", ts=2.0, seed=0)
+        # Opinion(2, 0) at base rate 0.5: projected = 0.5 + 0.5 * 0.5.
+        assert result == {"c": pytest.approx(0.75)}
+
+    def test_valid_empty_rating_still_marks_seen(self, store):
+        # "{}" is a real rating (the model found nothing), not garbage:
+        # no raise, and the unchanged note is deduped next time.
+        ing = NoteIngester(store, _StubLLM("{}"), "q", model_id="m")
+        assert ing.ingest("notes/n.md", "body", ts=1.0, seed=0) == {}
+        assert ing.ingest("notes/n.md", "body", ts=2.0, seed=0) is None

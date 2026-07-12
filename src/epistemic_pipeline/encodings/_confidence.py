@@ -15,7 +15,7 @@ import json
 import math
 
 
-def parse_confidence_vector(text: str) -> dict[str, float]:
+def parse_confidence_vector(text: str, *, strict: bool = False) -> dict[str, float]:
     """Parse a JSON object mapping name -> confidence.
 
     Keeps only string keys whose value is a finite number. Anything else
@@ -24,18 +24,38 @@ def parse_confidence_vector(text: str) -> dict[str, float]:
     is dropped here at the trust boundary rather than allowed to reach
     beliefs.
 
+    Two callers, two failure needs. Replaying persisted values must
+    tolerate anything (default: garbage becomes ``{}``). Parsing a fresh
+    LLM response must fail loudly, or a garbage response is
+    indistinguishable from "the model rated nothing" and the caller
+    wrongly records success (#22). ``strict=True`` raises in that case;
+    a valid empty object ``{}`` is still a valid rating in both modes.
+
     Args:
         text: a JSON string. Expected shape ``{name: float, ...}``.
+        strict: raise instead of returning ``{}`` when ``text`` is not a
+            JSON object, or when it is a non-empty object with no usable
+            entries (``{"c": "high"}`` is garbage; ``{}`` is a rating).
 
     Returns:
         A dict from name to finite float. Empty dict if parsing fails or
-        the payload is not a JSON object.
+        the payload is not a JSON object (non-strict mode).
+
+    Raises:
+        ValueError: in strict mode, when ``text`` does not parse to a
+            JSON object or no entry survives.
     """
     try:
         payload = json.loads(text)
     except (json.JSONDecodeError, ValueError):
+        if strict:
+            msg = f"confidence vector is not valid JSON: {text[:80]!r}"
+            raise ValueError(msg) from None
         return {}
     if not isinstance(payload, dict):
+        if strict:
+            msg = f"confidence vector is not a JSON object: {text[:80]!r}"
+            raise ValueError(msg)
         return {}
     result: dict[str, float] = {}
     for name, value in payload.items():
@@ -47,6 +67,12 @@ def parse_confidence_vector(text: str) -> dict[str, float]:
             continue
         if math.isfinite(number):
             result[name] = number
+    # A non-empty object where every entry was dropped is garbage wearing
+    # a valid envelope, not "the model rated nothing" -- strict mode must
+    # treat it like malformed JSON or the #22 silent skip re-enters.
+    if strict and payload and not result:
+        msg = f"confidence vector has no usable entries: {text[:80]!r}"
+        raise ValueError(msg)
     return result
 
 
