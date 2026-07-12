@@ -1,0 +1,87 @@
+site_name: Epistemic Pipeline
+site_description: >-
+  A reasoning architecture that shows its work: formal belief revision,
+  auditable evidence, replayable traces.
+site_url: https://therealbillsiegler.github.io/epistemic-pipeline/
+repo_url: https://github.com/TheRealBillSiegler/epistemic-pipeline
+repo_name: epistemic-pipeline
+edit_uri: edit/main/docs/
+
+# The specs and research notes stay in the repo as the source of truth.
+# The site explains; it links to them on GitHub rather than republishing.
+exclude_docs: |
+  superpowers/
+  research/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Core ideas:
+      - concepts/index.md
+      - The state tuple: concepts/state.md
+      - The five layers: concepts/layers.md
+      - The pipeline: concepts/pipeline.md
+      - The encodings: concepts/encodings.md
+  - Beliefs as numbers:
+      - beliefs/index.md
+      - Opinions and uncertainty: beliefs/opinions.md
+      - Fusing evidence: beliefs/fusion.md
+      - Credibility: beliefs/credibility.md
+  - The worldview app:
+      - worldview/index.md
+      - The belief store: worldview/store.md
+      - What the numbers mean: worldview/honesty.md
+  - Project:
+      - Status: project/status.md
+      - Glossary: project/glossary.md
