@@ -47,6 +47,8 @@ Deciding what to build next follows one rule, sized to how reversible the decisi
 | [#35](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/35) | Every rating comes from one LLM, so many documents can share that model's prior instead of being independent evidence — root-keyed fusion can't see this | Open |
 | [#36](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/36) | The `(O, E, B, R)` invariants are enforced by convention and tests, not checked by the pipeline itself | Open |
 | [#37](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/37) | A docs site that explains the whole system with diagrams — this page is part of that site | Open |
+| [#41](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/41) | Parametric-knowledge encoding: audit the model's own knowledge (model-as-root + declared priors) | Open — Tier 2 design, see [Directions](directions.md) |
+| [#42](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/42) | Retraction: quarantine a discredited observation or rater, re-derive beliefs | Open — designed, see [When the model is wrong](../worldview/model-error.md) |
 
 ## Where next
 

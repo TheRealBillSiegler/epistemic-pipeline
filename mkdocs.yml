@@ -82,6 +82,8 @@ nav:
       - worldview/index.md
       - The belief store: worldview/store.md
       - What the numbers mean: worldview/honesty.md
+      - When the model is wrong: worldview/model-error.md
   - Project:
       - Status: project/status.md
+      - Directions: project/directions.md
       - Glossary: project/glossary.md

@@ -82,6 +82,7 @@ A number that cannot say what it does not mean is not honest, no matter how care
 
 ## Where next
 
+- [When the model is wrong](model-error.md) — hallucination, flawed training, and who is allowed to judge evidence
 - [The belief store](store.md) — where the evidence behind every number actually lives
 - [Beliefs as numbers](../beliefs/index.md) — the Subjective Logic math that turns evidence into `u`
 - [The Subjective Logic design](https://github.com/TheRealBillSiegler/epistemic-pipeline/blob/main/docs/superpowers/specs/2026-06-23-worldview-subjective-logic-design.md) — §2 for the trust commitment, §7 for the hard parts, §10 for the production gates

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup — Honest-status admonition, current vs. proposed</title>
+<style>
+  :root {
+    --bg: #fff; --fg: #212121; --muted: #666;
+    --card-bg: #fff; --card-border: #e0e0e0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1e2129; --fg: #bfc1c6; --muted: #8a8d94; --card-bg: #22252e; --card-border: #383b45; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+    margin: 0; padding: 2rem 1.25rem 4rem;
+    max-width: 760px; margin-inline: auto;
+  }
+  h1 { font-size: 1.3rem; font-weight: 600; margin-bottom: .25rem; }
+  p.note { color: var(--muted); font-size: .9rem; margin-top: 0; margin-bottom: 2rem; max-width: 60ch; }
+  h2.label { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 2.5rem 0 .6rem; }
+
+  /* ---- shared admonition shell ---- */
+  .admonition {
+    border-radius: .2rem; border-width: 0 0 0 .2rem; border-style: solid;
+    margin: 0 0 1rem; overflow: hidden; background: var(--card-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .admonition .title {
+    display: flex; align-items: center; gap: .5rem;
+    font-weight: 700; font-size: .85rem; padding: .5rem .8rem .5rem 2rem; position: relative;
+  }
+  .admonition .title svg { position: absolute; left: .8rem; width: 1rem; height: 1rem; }
+  .admonition .body { padding: .7rem .8rem .8rem 2rem; font-size: .85rem; line-height: 1.5; }
+  .admonition .body code {
+    background: rgba(127,127,127,.16); border-radius: .2rem; padding: .05rem .35rem; font-size: .85em;
+    font-family: "Roboto Mono", ui-monospace, monospace;
+  }
+
+  /* ---- current: generic MkDocs Material "warning" ---- */
+  .current { border-color: #ff9100; }
+  .current .title { background: #ff91001a; color: var(--fg); }
+  .current .title svg { fill: #ff9100; }
+
+  /* ---- proposed: dedicated "honesty" admonition type ---- */
+  .honesty { border-color: #7c4dff; }
+  .honesty .title { background: #7c4dff1a; color: var(--fg); }
+  .honesty .title svg { fill: #7c4dff; }
+
+  .caption { font-size: .78rem; color: var(--muted); margin: .5rem 0 0; }
+  .diff {
+    font-family: "Roboto Mono", ui-monospace, monospace; font-size: .78rem;
+    background: var(--card-bg); border: 1px solid var(--card-border); border-radius: .3rem;
+    padding: .8rem 1rem; margin-top: 2.5rem; overflow-x: auto;
+  }
+  .diff .add { color: #2e7d32; }
+  .diff .del { color: #c62828; }
+  @media (prefers-color-scheme: dark) {
+    .diff .add { color: #66bb6a; }
+    .diff .del { color: #ef5350; }
+  }
+</style>
+</head>
+<body>
+  <h1>Mockup — "Honest status" admonition: current vs. proposed</h1>
+  <p class="note">
+    This appears on 9 of ~14 docs pages. It is the site's core trust device — the thing
+    that turns "we claim this is honest" into "here is exactly where it isn't." Right now it
+    uses MkDocs Material's stock <code>warning</code> style, which is visually identical to
+    any routine "this is unfinished" callout anywhere else on the web. The proposed version
+    gives it its own color and icon, unused for anything else on the site, so it reads as a
+    deliberate, named feature — not a caveat.
+  </p>
+
+  <h2 class="label">Current — generic <code>!!! warning</code></h2>
+  <div class="admonition current">
+    <div class="title">
+      <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+      Honest status: replay uses today's revision rule, not the one that made the trace
+    </div>
+    <div class="body">
+      <code>load_trace</code> reattaches whichever revision function the current code maps to
+      the trace's encoding name. If that rule has changed since the trace was recorded, replay
+      silently uses the new rule — the file never records which version of R actually produced it.
+    </div>
+  </div>
+  <p class="caption">Same amber, same triangle, as a stray "TODO" or a broken-example warning elsewhere on the web.</p>
+
+  <h2 class="label">Proposed — dedicated <code>!!! honesty</code></h2>
+  <div class="admonition honesty">
+    <div class="title">
+      <svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.5 3.8 10.7 8 12 4.2-1.3 8-6.5 8-12V5l-8-3zm0 2.2 6 2.25V11c0 4.5-3 8.8-6 9.9-3-1.1-6-5.4-6-9.9V6.45l6-2.25zM11 7v6h2V7h-2zm0 8v2h2v-2h-2z"/></svg>
+      Honest status: replay uses today's revision rule, not the one that made the trace
+    </div>
+    <div class="body">
+      <code>load_trace</code> reattaches whichever revision function the current code maps to
+      the trace's encoding name. If that rule has changed since the trace was recorded, replay
+      silently uses the new rule — the file never records which version of R actually produced it.
+    </div>
+  </div>
+  <p class="caption">Same content, distinct violet + shield-glyph. No other admonition type on the site uses this hue, so a reader learns it once and recognizes it everywhere after.</p>
+
+  <div class="diff">
+    <div><span class="del">- !!! warning "Honest status: replay uses today's revision rule..."</span></div>
+    <div><span class="add">+ !!! honesty "Replay uses today's revision rule..."</span></div>
+    <div style="margin-top:.6rem; color:var(--muted)">mkdocs.yml — add one custom admonition type via <code>pymdownx.blocks.admonition</code>'s
+    <code>custom_types</code>, or hand-roll ~10 lines of CSS keyed to <code>.md-typeset .honesty</code>
+    the same way Material itself styles <code>.warning</code> / <code>.failure</code>.
+    Then find/replace across the 9 files that currently open with <code>!!! warning "Honest status</code>.</div>
+  </div>
+</body>
+</html>

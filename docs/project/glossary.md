@@ -26,6 +26,10 @@ A name in the [ontology](#ontology) that a belief can attach to; in the worldvie
 
 The fusion rule that adds evidence counts from several opinions, so independent confirmation lowers uncertainty — the right choice only when the sources are genuinely independent. [Fusing evidence](../beliefs/fusion.md)
 
+## declared prior
+
+The model's stance on a claim, elicited and recorded *before* it reads any document, so evidence moves belief relative to a stated starting point instead of a hidden one. Designed, not built ([#41](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/41)). [Directions](directions.md)
+
 ## discount
 
 Scaling an opinion's evidence counts by a source's reliability before it gets fused in, so a low-trust source loses influence instead of flipping the belief the other way. [Credibility](../beliefs/credibility.md)
@@ -62,6 +66,10 @@ The set of concepts a belief can attach to; evidence about anything outside it c
 
 A belief about one claim, stored as supporting and disconfirming evidence counts `(r, s)` plus a base rate, from which belief, disbelief, and uncertainty are all derived. [Opinions and uncertainty](../beliefs/opinions.md)
 
+## parametric knowledge
+
+What a model knows from its weights alone — no document in hand. The proposed [parametric-knowledge encoding](directions.md) would externalize it as claims, with the model itself as the single provenance root. [Directions](directions.md)
+
 ## projected probability
 
 The single number an opinion collapses to when one number is needed: belief plus base rate times uncertainty, \( P = b + \text{base\_rate} \cdot u \). [Opinions and uncertainty](../beliefs/opinions.md)
@@ -73,6 +81,10 @@ The record of where a piece of evidence came from, used to derive its [root id](
 ## replay
 
 Rebuilding a belief state by re-running the revision policy over the recorded evidence trail; because R is pure this gives the same answer every time — provided the same R is reattached, which trace replay does not yet guarantee ([#30](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/30)). [The pipeline](../concepts/pipeline.md)
+
+## retraction
+
+Removing a discredited observation's influence by marking it (never deleting it) and re-deriving beliefs without it, with the retraction itself logged in the drift timeline. Designed, not built ([#42](https://github.com/TheRealBillSiegler/epistemic-pipeline/issues/42)). [When the model is wrong](../worldview/model-error.md)
 
 ## revision policy
 
