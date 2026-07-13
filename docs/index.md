@@ -34,6 +34,8 @@ flowchart LR
 
 A document arrives. It becomes evidence (**E**). The revision rule (**R**) reads that evidence, checks it against the known concepts (**O**), and produces new beliefs (**B**). Nothing else may change beliefs. That single constraint is what makes the system auditable: the belief trail has no side doors.
 
+The worldview app is the first application, not the whole idea. The same four slots hold Bayesian inference, classical planning, and graph search — [any reasoning that follows rules](concepts/encodings.md) can run on this pipeline and inherit the same auditability. The deeper project is making epistemological process itself executable: not just *what* to believe, but a checkable record of *how* believing happened.
+
 ## Why this exists
 
 Most AI systems give you a conclusion and a vibe of confidence. This project takes the opposite bet: the *process* can be honest even when no system can promise *truth*. Three commitments follow:
@@ -41,6 +43,10 @@ Most AI systems give you a conclusion and a vibe of confidence. This project tak
 1. **Every belief traces to evidence.** No belief moves without a recorded observation behind it.
 2. **Replay gives the same answer.** The same evidence, in the same order, rebuilds the same beliefs. Determinism is tested, not promised.
 3. **The numbers never claim more than they mean.** "How settled is this belief" measures recorded, deduplicated evidence — not truth. The [honesty page](worldview/honesty.md) spells out exactly where the limits are.
+
+## Beyond your documents
+
+The same machinery points at a bigger target: the model itself. An LLM's own knowledge can be broken into claims and tracked the same way — with the model as a single evidence root, so asking it twice never counts as two sources, and its prior on every claim declared up front instead of hidden. That would make what a model believes auditable, diffable across versions, and retractable with a receipt. A literature sweep found no existing system that combines these pieces. None of it is built yet; all of it is [designed and researched](project/directions.md), with the prerequisites named.
 
 ## Who this is for, today
 
@@ -65,6 +71,10 @@ Honest answer: today the tool is a **Python library plus this documentation**. I
 - **[Project status](project/status.md)**
 
     What is built, what is measured, what is deferred — with links to the open issues.
+
+- **[Directions](project/directions.md)**
+
+    Where this goes: auditing a model's own knowledge, retraction with receipts, and the measurements that gate everything.
 
 </div>
 
