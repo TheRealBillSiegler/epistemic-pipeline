@@ -1,10 +1,12 @@
 # Epistemic Pipeline
 
-**You read constantly — papers, articles, notes. Each one nudges what you believe. But nothing keeps score.** A month later you are confident about a claim and cannot say which sources made you confident, whether those sources were truly independent, or why the confidence is what it is. Your beliefs have no receipts.
+Pick something you believe today that you did not believe five years ago. Naming the belief is easy. Now try to name what changed it — which article, which conversation, which study — and whether that evidence deserved the weight you gave it.
 
-This project builds the receipts. It is a reasoning system that reads evidence, updates beliefs by explicit rules, and keeps a replayable record of every change. You can always ask: *what did it believe, when, and why?* — and get a checkable answer.
+Almost nobody can. Beliefs change off the books: you read, something shifts, the source fades, and what remains is confidence with no memory of where it came from. The AI systems now doing more of our reading have the same defect at higher speed — a conclusion, a tone of confidence, and no ledger behind either.
 
-## What using it looks like
+The Epistemic Pipeline is the ledger. Evidence goes in, beliefs change by an explicit rule, and every change is recorded — so *why do I believe this?* always has a checkable answer.
+
+## Watching the ledger work
 
 Say you have a standing question and documents arrive over time. One claim inside them: *"GLP-1 drugs reduce cardiovascular risk."*
 
