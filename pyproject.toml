@@ -33,6 +33,9 @@ dev = [
     "ruff",
     "pyright",
 ]
+docs = [
+    "mkdocs-material>=9,<10",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/epistemic_pipeline"]
