@@ -40,7 +40,7 @@ from epistemic_pipeline.encodings.worldview import (
 from epistemic_pipeline.worldview_app.provenance import canonicalize_origin
 
 if TYPE_CHECKING:
-    from epistemic_pipeline.llm.llm_interfaces import RatingLLMInterface
+    from epistemic_pipeline.llm.llm_interfaces import ConfidenceRater
     from epistemic_pipeline.worldview_app.store import Store
 
 
@@ -52,16 +52,21 @@ def author_claim(
 ) -> None:
     """Record a claim the user states directly (source_type 'user').
 
-    A user assertion is not driven by document evidence, so it writes no
-    observation or evidence link -- just the claim and its concept. It is
-    therefore outside the Subjective-Logic evidence trail. If a later
-    document rates the same claim (claim id is the text, so they collide),
-    the document evidence takes over: the stored confidence becomes the
-    document-derived projected probability, the source_type becomes the
-    document's, and the drift link records the change from the user's last
-    displayed value. User assertions and document-derived opinions are kept
-    as separate kinds of belief for now; folding user assertions into the
-    evidence trail is future work.
+    A user assertion stays outside the Subjective-Logic evidence trail:
+    belief replay reads only ``confidence_vector`` observations, and this
+    writes a ``user_assertion`` one. Folding user assertions into the
+    evidence trail is future work. But the assertion is still a display
+    change, so it must appear in the drift timeline -- otherwise
+    re-authoring a claim mid-history desyncs the reconstructed timeline
+    from the stored confidence (#31). So it writes an audit-only
+    observation and a link whose delta is measured from the last
+    displayed value (the base rate for a new claim).
+
+    If a later document rates the same claim (claim id is the text, so
+    they collide), the document evidence takes over: the stored
+    confidence becomes the document-derived projected probability, and
+    its drift link records the change from the user's last displayed
+    value.
 
     Args:
         store: the belief store to write to.
@@ -69,8 +74,14 @@ def author_claim(
         confidence: the user's confidence in [0, 1].
         ts: caller-supplied timestamp (never wall clock).
     """
+    existing = store.get_claim(claim)
+    p_before = existing["confidence"] if existing is not None else DEFAULT_BASE_RATE
     store.add_concept(claim, "user")
     store.put_claim(claim, claim, confidence, "user", ts)
+    obs_id = store.add_observation(
+        "user_assertion", str(confidence), "user", 1.0, ts, modality="user",
+    )
+    store.add_link(claim, obs_id, confidence - p_before, "authored", ts)
 
 
 def _prompt_hash(*parts: str) -> str:
@@ -203,7 +214,7 @@ def ingest_rating(  # noqa: PLR0913
 
 def ingest_document(  # noqa: PLR0913
     store: Store,
-    llm: RatingLLMInterface,
+    llm: ConfidenceRater,
     question: str,
     document: str,
     *,
@@ -239,7 +250,9 @@ def ingest_document(  # noqa: PLR0913
     """
     known = tuple(store.concepts())
     response = llm.rate_confidence(question, known, document)
-    confidences = parse_confidence_vector(response.content)
+    # strict: a garbage response must raise, not become {} -- otherwise
+    # NoteIngester marks the note seen and never retries it (#22).
+    confidences = parse_confidence_vector(response.content, strict=True)
     return ingest_rating(
         store,
         confidences,
@@ -272,7 +285,7 @@ class NoteIngester:
     def __init__(
         self,
         store: Store,
-        llm: RatingLLMInterface,
+        llm: ConfidenceRater,
         question: str,
         *,
         model_id: str,

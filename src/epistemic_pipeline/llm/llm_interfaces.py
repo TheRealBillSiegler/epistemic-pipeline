@@ -184,6 +184,35 @@ class MockLLM:
         return self._responses[state_description]
 
 
+class ConfidenceRater(Protocol):
+    """The one LLM method the worldview ingest path needs.
+
+    Parameters are positional-only, so any implementation satisfies the
+    protocol regardless of its parameter names. Every RatingLLMInterface
+    implementation already qualifies; test doubles need only this method.
+    """
+
+    def rate_confidence(
+        self,
+        question: str,
+        hypotheses: Sequence[str],
+        evidence_summary: str,
+        /,
+    ) -> LLMResponse:
+        """Produce a confidence vector across hypotheses.
+
+        Args:
+            question: the natural-language task.
+            hypotheses: known candidate claims (may grow).
+            evidence_summary: the evidence or document text to rate.
+
+        Returns:
+            An LLMResponse whose content is a JSON object mapping
+            name to confidence in [0, 1].
+        """
+        ...
+
+
 class RatingLLMInterface(LLMInterface, Protocol):
     """LLM that can both reason and rate hypothesis confidence.
 
