@@ -1,0 +1,28 @@
+{
+  "salt": "p3-backtest-2026-07-15-7f3a91c2d8",
+  "labels": {
+    "C01": "safe",
+    "C02": "bug",
+    "C03": "bug",
+    "C04": "bug",
+    "C05": "safe",
+    "C06": "safe",
+    "C07": "bug",
+    "C08": "bug",
+    "C09": "bug",
+    "C10": "safe",
+    "C11": "safe",
+    "C12": "bug",
+    "C13": "safe",
+    "C14": "safe"
+  },
+  "bug_descriptions": {
+    "C02": "Adds bare 'ref' to tracking params despite the comment explaining GitHub ?ref=main names a resource; distinct sources now merge to one root.",
+    "C03": "Drops the '/' fallback: a bare-domain URL canonicalizes without trailing slash, changing existing root ids.",
+    "C04": "removeprefix('doi:') does not strip uppercase 'DOI:'; such origins get a doubled 'doi:doi:' prefix.",
+    "C07": "CREATE INDEX on observations(root_id) runs in _SCHEMA before the legacy-table ALTER migration, so opening a pre-root_id store crashes. (Designed as safe; the construction check reclassified it.)",
+    "C08": "Boundary mutation: confidence 0.0 (valid, means certain-false rating floor) is now rejected.",
+    "C09": "Upsert no longer updates source_type on conflict; docstring above still promises it is overwritten.",
+    "C12": "VALUES tuple transposed: confidence is stored in the modality column and modality in confidence."
+  }
+}
