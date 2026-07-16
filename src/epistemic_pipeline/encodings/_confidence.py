@@ -37,12 +37,58 @@ def parse_confidence_vector(text: str) -> dict[str, float]:
         return {}
     if not isinstance(payload, dict):
         return {}
+    return _finite_confidences(payload)
+
+
+def parse_confidence_object(text: str) -> dict[str, float]:
+    """Strict parse for the live ingest boundary: raise on a non-object.
+
+    Same value filtering as ``parse_confidence_vector``, but it tells two
+    failure modes apart instead of collapsing both to an empty dict:
+
+    - text that is not a JSON object (garbage, a JSON array, a bare value)
+      raises ``ValueError`` -- the model did not answer in the expected shape.
+    - a valid empty object ``"{}"`` returns ``{}`` -- the model answered, and
+      rated nothing.
+
+    The ingest boundary needs that distinction: a note must be marked seen
+    only when the model actually answered. Garbage must leave it un-seen so
+    the next attempt retries instead of silently dropping it (issue #22).
+    Replay over recorded evidence uses the lenient parser instead, because a
+    replay must never raise on data already accepted.
+
+    Args:
+        text: a JSON string. Expected shape ``{name: float, ...}``.
+
+    Returns:
+        A dict from name to finite float (possibly empty).
+
+    Raises:
+        ValueError: if ``text`` does not parse to a JSON object.
+    """
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("confidence vector is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"confidence vector must be a JSON object, got {type(payload).__name__}"
+        )
+    return _finite_confidences(payload)
+
+
+def _finite_confidences(payload: dict[str, object]) -> dict[str, float]:
+    """Keep only values that are a finite number (the trust filter).
+
+    Shared by both parsers. JSON object keys are always strings, so only
+    values are checked. A non-finite value (``Infinity`` or ``NaN``, which
+    ``json.loads`` accepts) would poison a later update, so it is dropped
+    here rather than allowed to reach beliefs.
+    """
     result: dict[str, float] = {}
     for name, value in payload.items():
-        if not isinstance(name, str):
-            continue
         try:
-            number = float(value)
+            number = float(value)  # pyright: ignore[reportArgumentType]
         except (TypeError, ValueError):
             continue
         if math.isfinite(number):

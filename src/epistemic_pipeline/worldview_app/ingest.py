@@ -29,7 +29,7 @@ import hashlib
 import math
 from typing import TYPE_CHECKING
 
-from epistemic_pipeline.encodings._confidence import parse_confidence_vector
+from epistemic_pipeline.encodings._confidence import parse_confidence_object
 from epistemic_pipeline.encodings.worldview import (
     DEFAULT_BASE_RATE,
     WorldviewBeliefs,
@@ -236,10 +236,15 @@ def ingest_document(  # noqa: PLR0913
 
     Returns:
         The map of moved concepts to their new projected probabilities.
+
+    Raises:
+        ValueError: if the LLM response is not a JSON object. This leaves a
+            note un-seen so ``NoteIngester`` retries it instead of recording
+            a content hash for a rating that never landed (issue #22).
     """
     known = tuple(store.concepts())
     response = llm.rate_confidence(question, known, document)
-    confidences = parse_confidence_vector(response.content)
+    confidences = parse_confidence_object(response.content)
     return ingest_rating(
         store,
         confidences,
