@@ -1,0 +1,235 @@
+{
+ "reviews": [
+  {
+   "reviewer": "sonnet-r1",
+   "model": "sonnet",
+   "ratings": {
+    "C01": 0.02,
+    "C02": 0.92,
+    "C03": 0.7,
+    "C04": 0.85,
+    "C05": 0.02,
+    "C06": 0.02,
+    "C07": 0.03,
+    "C08": 0.95,
+    "C09": 0.95,
+    "C10": 0.02,
+    "C11": 0.02,
+    "C12": 0.97,
+    "C13": 0.03,
+    "C14": 0.02
+   },
+   "notes": "C02: adds \"ref\" to _TRACKING, directly contradicting the adjacent unchanged comment (\"Bare 'ref' is left OUT on purpose... GitHub ?ref=main vs ?ref=dev are different pages\") -- now strips ref and merges distinct GitHub-style resources. C03: drops the `or \"/\"` fallback so bare-domain/root URLs (e.g. \"https://blog.com\") canonicalize to no trailing slash instead of \"/\", verified via urlunsplit's netloc/path logic -- changes the emitted root id for root-path URLs, contradicting the stability guarantee C01 adds in the same PR. C04: `o.removeprefix(\"doi:\")` is case-sensitive but the guard only checks the lowercased `low`; a caller-supplied \"DOI:xyz\" or \"Doi:xyz\" fails to strip and yields a doubled prefix \"doi:doi:xyz\" instead of \"doi:xyz\". C08: tightens confidence check from `0.0 <= value` to `0.0 < value`, silently rejecting confidence=0.0 even though the unchanged docstring still says \"value is in [0, 1]\" (inclusive). C09: removes `source_type = excluded.source_type` from the ON CONFLICT UPDATE, so put_claim no longer overwrites source_type on a repeat id, contradicting the still-present docstring (\"text, confidence, and source_type are all overwritten\"). C12: swaps the bind-tuple order to (..., confidence, modality, ...) while the INSERT column list stays (..., modality, confidence, ...), binding confidence's value into the TEXT modality column and modality's value into the REAL NOT NULL confidence column -- crashes with IntegrityError when modality defaults to None, corrupts data otherwise."
+  },
+  {
+   "reviewer": "sonnet-r2",
+   "model": "sonnet",
+   "ratings": {
+    "C01": 0.03,
+    "C02": 0.95,
+    "C03": 0.75,
+    "C04": 0.8,
+    "C05": 0.03,
+    "C06": 0.02,
+    "C07": 0.85,
+    "C08": 0.93,
+    "C09": 0.9,
+    "C10": 0.03,
+    "C11": 0.04,
+    "C12": 0.97,
+    "C13": 0.05,
+    "C14": 0.02
+   },
+   "notes": "C02: adds \"ref\" to _TRACKING, directly contradicting the adjacent comment explaining \"ref\" must stay (GitHub ?ref=main vs ?ref=dev are distinct pages) -- merges distinct sources. C03: drops the `or \"/\"` fallback so root-domain URLs (empty path) canonicalize to a different string than before, breaking the id-stability property the module cares about. C04: `o.removeprefix(\"doi:\")` is case-sensitive, unlike the original `o[4:]` slice guarded by a case-insensitive `low.startswith(\"doi:\")` check -- mixed-case \"DOI:\" prefixes now produce a doubled \"doi:doi:...\" id. C07: adds `CREATE INDEX ... ON observations(root_id)` to the schema script, which runs BEFORE the code's own forward-migration ALTER TABLE step -- opening any legacy on-disk store that predates the root_id column will now raise \"no such column: root_id\". C08: narrows confidence bound from `0.0 <= value <= 1.0` to `0.0 < value <= 1.0`, rejecting the documented-valid value 0.0. C09: drops `source_type = excluded.source_type` from the upsert, so repeat-id claims no longer update source_type, contradicting the method's own docstring. C12: swaps `modality` and `confidence` in the INSERT values tuple while the column list (variable, value, source, modality, confidence, timestamp, root_id) stays unchanged -- crosses the two columns, storing confidence values into the modality column and modality strings (or None, which would violate NOT NULL) into confidence."
+  },
+  {
+   "reviewer": "sonnet-r3",
+   "model": "sonnet",
+   "ratings": {
+    "C01": 0.02,
+    "C02": 0.92,
+    "C03": 0.7,
+    "C04": 0.9,
+    "C05": 0.03,
+    "C06": 0.02,
+    "C07": 0.85,
+    "C08": 0.95,
+    "C09": 0.95,
+    "C10": 0.03,
+    "C11": 0.03,
+    "C12": 0.97,
+    "C13": 0.05,
+    "C14": 0.02
+   },
+   "notes": "C02: adds \"ref\" to _TRACKING, directly reversing the file's own documented rationale (GitHub ?ref=main vs ?ref=dev are distinct pages) \u2014 merges roots that must stay distinct. C03: drops `or \"/\"` fallback, so bare-domain URLs (no path) canonicalize to \"https://host\" instead of \"https://host/\", silently re-keying fusion roots for that case and breaking the \"stable canonical ids\" promise. C04: `o.removeprefix(\"doi:\")` is case-sensitive while the guard `low.startswith(\"doi:\")` is not \u2014 any \"DOI:\" or \"Doi:\" input fails to strip and produces a doubled \"doi:doi:...\" id. C07: new `CREATE INDEX ... ON observations(root_id)` runs inside the same executescript as the CREATE TABLE statements, before the forward-migration ALTER TABLE that adds root_id to legacy DBs \u2014 opening a pre-root_id store now crashes with \"no such column: root_id\". C08: bound changed from `0.0 <= value` to `0.0 < value`, so confidence == 0.0 now raises ValueError, contradicting the documented [0,1] range and rejecting previously-valid input. C09: removes `source_type = excluded.source_type` from the upsert, so put_claim on an existing id silently keeps the old source_type \u2014 contradicts its own docstring (\"text, confidence, and source_type are all overwritten\"). C12: swaps confidence/modality in the VALUES tuple without changing the column list, so confidence and modality values land in each other's columns (NOT NULL confidence column can receive NULL when modality is None)."
+  },
+  {
+   "reviewer": "sonnet-r4",
+   "model": "sonnet",
+   "ratings": {
+    "C01": 0.02,
+    "C02": 0.92,
+    "C03": 0.6,
+    "C04": 0.85,
+    "C05": 0.02,
+    "C06": 0.02,
+    "C07": 0.72,
+    "C08": 0.9,
+    "C09": 0.92,
+    "C10": 0.03,
+    "C11": 0.03,
+    "C12": 0.97,
+    "C13": 0.04,
+    "C14": 0.02
+   },
+   "notes": "C02: adds \"ref\" to _TRACKING, directly contradicting the file's own comment explaining \"ref\" must stay out (GitHub ?ref=main vs ?ref=dev would wrongly merge). C03: dropped `or \"/\"` fallback changes canonical output for bare-domain URLs (e.g. \"https://blog.com/\" now canonicalizes to \"https://blog.com\" instead of \".../\"), breaking stability of previously-computed root_ids even though self-consistency across equivalent inputs is preserved. C04: `o.removeprefix(\"doi:\")` is case-sensitive while the guard `low.startswith(\"doi:\")` is case-insensitive, so a mixed-case input like \"DOI:10.1145/x\" fails to strip and yields a doubled prefix \"doi:doi:10.1145/x\". C07: new `CREATE INDEX ... ON observations(root_id)` runs inside `executescript(_SCHEMA)`, which executes before the forward-migration ALTER TABLE that adds root_id to legacy DBs \u2014 opening a pre-existing on-disk store without root_id will raise \"no such column: root_id\" before migration can run. C08: `_check_confidence` changed to `0.0 < value <= 1.0`, silently rejecting confidence=0.0, contradicting the unchanged docstring \"value is in [0, 1]\". C09: `source_type = excluded.source_type` removed from the ON CONFLICT UPDATE, so put_claim on a repeat id no longer updates source_type, contradicting the unchanged docstring's explicit claim that it does. C12: INSERT values tuple swaps `modality` and `confidence` relative to the column list, so default calls (modality=None) put NULL into the NOT NULL confidence column (IntegrityError), and calls with modality set corrupt both fields with wrong types."
+  },
+  {
+   "reviewer": "sonnet-r5",
+   "model": "sonnet",
+   "ratings": {
+    "C01": 0.02,
+    "C02": 0.95,
+    "C03": 0.4,
+    "C04": 0.9,
+    "C05": 0.03,
+    "C06": 0.02,
+    "C07": 0.03,
+    "C08": 0.92,
+    "C09": 0.9,
+    "C10": 0.02,
+    "C11": 0.03,
+    "C12": 0.97,
+    "C13": 0.03,
+    "C14": 0.02
+   },
+   "notes": "C02: adds \"ref\" to _TRACKING, directly contradicting the adjacent comment explaining bare \"ref\" is deliberately excluded (GitHub ?ref=main vs ?ref=dev are distinct pages) \u2014 will wrongly merge distinct sources.\nC04: o.removeprefix(\"doi:\") is case-sensitive, unlike the o[4:] slice it replaces; input like \"DOI:10.1234/x\" (matched by the case-insensitive low.startswith check) no longer has its prefix stripped, producing \"doi:doi:10.1234/x\".\nC08: _check_confidence changed from 0.0 <= value to 0.0 < value, now rejecting confidence=0.0 even though the docstring still says \"[0, 1]\" and 0.0 is a legitimate fully-disconfirmed value.\nC09: ON CONFLICT clause drops \"source_type = excluded.source_type\" while the docstring still promises \"text, confidence, and source_type are all overwritten\" on a repeat put_claim \u2014 source_type now sticks at its original value.\nC12: swaps confidence and modality in the VALUES tuple while the column list stays (variable, value, source, modality, confidence, timestamp, root_id) \u2014 confidence gets written into the modality slot and vice versa; with default modality=None this inserts NULL into the NOT NULL confidence column and raises immediately."
+  },
+  {
+   "reviewer": "haiku-r1",
+   "model": "haiku",
+   "ratings": {
+    "C01": 0,
+    "C02": 1,
+    "C03": 0.7,
+    "C04": 0.9,
+    "C05": 0,
+    "C06": 0,
+    "C07": 0,
+    "C08": 0.95,
+    "C09": 0.95,
+    "C10": 0,
+    "C11": 0,
+    "C12": 1,
+    "C13": 0.05,
+    "C14": 0
+   },
+   "notes": "C02: Adds \"ref\" to tracking parameters; documented reason for exclusion is that GitHub ?ref=main vs ?ref=dev are different pages \u2014 merging under-counts settledness. C03: Removes \"/\" fallback for root paths; changes canonical form. C04: removeprefix is case-sensitive; fails for uppercase \"DOI:\" prefix. C08: Changes confidence range from [0,1] to (0,1], rejecting 0.0; violates docstring contract. C09: Removes source_type from UPDATE SET; contradicts documented overwrite behavior. C12: Swaps modality and confidence parameter positions; writes wrong types to columns."
+  },
+  {
+   "reviewer": "haiku-r2",
+   "model": "haiku",
+   "ratings": {
+    "C01": 0,
+    "C02": 0.95,
+    "C03": 0.9,
+    "C04": 0.95,
+    "C05": 0,
+    "C06": 0,
+    "C07": 0,
+    "C08": 0.85,
+    "C09": 0.95,
+    "C10": 0,
+    "C11": 0,
+    "C12": 0.95,
+    "C13": 0,
+    "C14": 0
+   },
+   "notes": "C02: Adds \"ref\" to _TRACKING despite comment forbidding it; C03: Removes \"/\" fallback, changes URL normalization; C04: Case-sensitive removeprefix fails on uppercase \"DOI:\" prefix; C08: Changes allowed range from [0,1] to (0,1], breaks API; C09: Removes source_type update, violates docstring contract; C12: Swaps modality/confidence in tuple, causes data column mismatch"
+  },
+  {
+   "reviewer": "haiku-r3",
+   "model": "haiku",
+   "ratings": {
+    "C01": 0,
+    "C02": 1,
+    "C03": 0.9,
+    "C04": 0.95,
+    "C05": 0,
+    "C06": 0,
+    "C07": 0,
+    "C08": 0.95,
+    "C09": 0.95,
+    "C10": 0,
+    "C11": 0,
+    "C12": 1,
+    "C13": 0,
+    "C14": 0
+   },
+   "notes": "C02: adds \"ref\" to tracking; violates explicit comment forbidding it for GitHub branch URLs\nC03: removes \"or /\" fallback; breaks root-path canonicalization\nC04: case-sensitive removeprefix on lowercase-checked input; uppercase DOI: fails\nC08: narrows [0,1] to (0,1); zero confidence rejects valid input\nC09: removes source_type from update; violates documented contract\nC12: swaps confidence and modality parameter order; misaligned with SQL columns"
+  },
+  {
+   "reviewer": "opus-r1",
+   "model": "opus",
+   "notes": "C02: adds \"ref\" to _TRACKING, strips resource-naming ref params (comment says leave OUT); C03: drops `or \"/\"` so root URLs emit empty path, canonical string changes; C04: removeprefix(\"doi:\") is case-sensitive, \"DOI:\" yields \"doi:doi:...\" double prefix; C07: index on observations(root_id) in _SCHEMA runs before legacy ALTER, crashes migration on old DBs; C08: `0.0 < value` now rejects valid 0.0 confidence; C09: drops source_type from upsert, contradicts docstring; C12: values tuple order swaps confidence/modality vs column list, silent column misalignment.",
+   "ratings": {
+    "C01": 0.03,
+    "C02": 0.9,
+    "C03": 0.65,
+    "C04": 0.85,
+    "C05": 0.03,
+    "C06": 0.02,
+    "C07": 0.8,
+    "C08": 0.85,
+    "C09": 0.85,
+    "C10": 0.03,
+    "C11": 0.05,
+    "C12": 0.95,
+    "C13": 0.05,
+    "C14": 0.03
+   }
+  },
+  {
+   "reviewer": "opus-r2",
+   "model": "opus",
+   "notes": "C02: adds \"ref\" to _TRACKING, contradicts explicit comment; merges distinct GitHub ref=main/ref=dev pages. C03: drops `or \"/\"`, root-path URLs canonicalize to bare host without trailing slash, output string changes. C04: removeprefix(\"doi:\") is case-sensitive vs case-insensitive branch match; DOI:/Doi: prefixes yield doi:doi:... C07: index added to _SCHEMA runs before legacy root_id migration, crashes __init__ on legacy stores (no such column). C08: 0.0<=value becomes 0.0<value, rejects valid confidence 0.0. C09: drops source_type from upsert SET, contradicts docstring, no longer overwrites. C12: value tuple swaps confidence/modality relative to column order.",
+   "ratings": {
+    "C01": 0.02,
+    "C02": 0.95,
+    "C03": 0.78,
+    "C04": 0.88,
+    "C05": 0.03,
+    "C06": 0.02,
+    "C07": 0.68,
+    "C08": 0.92,
+    "C09": 0.9,
+    "C10": 0.03,
+    "C11": 0.04,
+    "C12": 0.95,
+    "C13": 0.04,
+    "C14": 0.03
+   }
+  },
+  {
+   "reviewer": "opus-r3",
+   "model": "opus",
+   "notes": "C02: adds \"ref\" to _TRACKING, contradicting the explicit comment that bare ref names the resource (GitHub ?ref=main vs dev) \u2014 merges distinct sources. C03: drops `or \"/\"`, changing root-URL canonical id from \".../\" to \"...\" (re-keys roots). C04: removeprefix(\"doi:\") is case-sensitive vs position slice o[4:]; \"DOI:\" prefix yields \"doi:DOI:...\" double prefix. C07: CREATE INDEX on observations(root_id) runs in executescript before the legacy ALTER adds root_id -> OperationalError on legacy DBs. C08: 0.0<value rejects valid confidence 0.0 ([0,1] per docstring). C09: removes source_type from upsert SET, contradicting docstring that source_type is overwritten. C12: values tuple swaps confidence/modality vs column order -> wrong column mapping, NOT NULL/type violation.",
+   "ratings": {
+    "C01": 0.03,
+    "C02": 0.9,
+    "C03": 0.55,
+    "C04": 0.85,
+    "C05": 0.03,
+    "C06": 0.02,
+    "C07": 0.78,
+    "C08": 0.88,
+    "C09": 0.85,
+    "C10": 0.03,
+    "C11": 0.05,
+    "C12": 0.95,
+    "C13": 0.05,
+    "C14": 0.03
+   }
+  }
+ ]
+}

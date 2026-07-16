@@ -1,0 +1,100 @@
+{
+ "C01": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C02": {
+  "pytest_pass": false,
+  "pytest_line": "1 failed, 326 passed in 0.57s",
+  "pyright_errors": 0,
+  "behavior_changed": true,
+  "probe_diff": "origins: ['https://github.com/repo/tree?ref=main', 'https://a.com/', 'doi:10.1234/abc', 'arxiv:2401.12345', 'https://blog.com/x?id=7', 'doi:10.1145/2700475'] -> ['https://github.com/repo/tree', 'https://a.com/', 'doi:10.1234/abc', 'arxiv:2401.12345', 'https://blog.com/x?id=7', 'doi:10.1145/2700475']"
+ },
+ "C03": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": true,
+  "probe_diff": "origins: ['https://github.com/repo/tree?ref=main', 'https://a.com/', 'doi:10.1234/abc', 'arxiv:2401.12345', 'https://blog.com/x?id=7', 'doi:10.1145/2700475'] -> ['https://github.com/repo/tree?ref=main', 'https://a.com', 'doi:10.1234/abc', 'arxiv:2401.12345', 'https://blog.com/x?id=7', 'doi:10.1145/2700475']"
+ },
+ "C04": {
+  "pytest_pass": false,
+  "pytest_line": "1 failed, 326 passed in 0.56s",
+  "pyright_errors": 0,
+  "behavior_changed": true,
+  "probe_diff": "origins: ['https://github.com/repo/tree?ref=main', 'https://a.com/', 'doi:10.1234/abc', 'arxiv:2401.12345', 'https://blog.com/x?id=7', 'doi:10.1145/2700475'] -> ['https://github.com/repo/tree?ref=main', 'https://a.com/', 'doi:doi:10.1234/abc', 'arxiv:2401.12345', 'https://blog.com/x?id=7', 'doi:10.1145/2700475']"
+ },
+ "C05": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C06": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C07": {
+  "pytest_pass": false,
+  "pytest_line": "1 failed, 326 passed in 0.63s",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C08": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": true,
+  "probe_diff": "order: ['c2', 'c1', 'c0'] -> ['c2', 'c1']; zero_conf: 'ok' -> 'rejected'"
+ },
+ "C09": {
+  "pytest_pass": false,
+  "pytest_line": "2 failed, 325 passed in 0.64s",
+  "pyright_errors": 0,
+  "behavior_changed": true,
+  "probe_diff": "claim: ['t2', 0.85, 'user'] -> ['t2', 0.85, 'inferred']"
+ },
+ "C10": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C11": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C12": {
+  "pytest_pass": false,
+  "pytest_line": "9 failed, 318 passed in 0.62s",
+  "pyright_errors": 0,
+  "behavior_changed": true,
+  "probe_diff": "obs: [0.5, 'tool', 'r1'] -> ['tool', '0.5', 'r1']"
+ },
+ "C13": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ },
+ "C14": {
+  "pytest_pass": true,
+  "pytest_line": "all green",
+  "pyright_errors": 0,
+  "behavior_changed": false,
+  "probe_diff": ""
+ }
+}
